@@ -120,8 +120,12 @@ function blockHTML(b) {
     return `<div class="${c}" data-id="${b.id}"><div class="line"><b>return</b>${ed(b.expression, b.id, "expression")}</div></div>`;
   if (b.type === "if")
     return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SI · INICIO</div><div class="condition">${ed(b.condition, b.id, "condition")}</div><div class="branches"><div class="branch"><div class="branch-label">V</div><div class="branch-body" data-container="${b.id}:then">${b.then.length ? list(b.then) : empty()}</div></div><div class="branch"><div class="branch-label">F</div><div class="branch-body" data-container="${b.id}:else">${b.else.length ? list(b.else) : empty()}</div></div></div><div class="flow-marker flow-end">FIN SI</div></div>`;
-  if (b.type === "switch")
-    return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SEGÚN · INICIO</div><div class="condition">según ${ed(b.expression, b.id, "expression")}</div>${b.cases.map((x, i) => `<div class="case-row"><div class="case-label">${ed(x.value, b.id, "case" + i)}<button class="case-action remove-case" type="button" data-switch-action="remove-case" data-case-index="${i}" title="Quitar opción" aria-label="Quitar opción ${i + 1}">×</button></div><div class="case-body" data-container="${b.id}:case${i}">${x.body.length ? list(x.body) : empty()}</div></div>`).join("")}<div class="switch-actions"><button class="case-action add-case" type="button" data-switch-action="add-case">+ Agregar opción</button></div><div class="case-row default-case"><div class="case-label">default</div><div class="case-body" data-container="${b.id}:default">${b.default.length ? list(b.default) : empty()}</div></div><div class="flow-marker flow-end">FIN SEGÚN</div></div>`;
+  if (b.type === "switch") {
+    const defaultCase = Array.isArray(b.default)
+      ? `<div class="case-row default-case"><div class="case-label">default<button class="case-action remove-case" type="button" data-switch-action="remove-default" title="Quitar default" aria-label="Quitar default">×</button></div><div class="case-body" data-container="${b.id}:default">${b.default.length ? list(b.default) : empty()}</div></div>`
+      : `<div class="switch-actions"><button class="case-action add-case" type="button" data-switch-action="add-default">+ Agregar default</button></div>`;
+    return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SEGÚN · INICIO</div><div class="condition">según ${ed(b.expression, b.id, "expression")}</div>${b.cases.map((x, i) => `<div class="case-row"><div class="case-label">${ed(x.value, b.id, "case" + i)}<button class="case-action remove-case" type="button" data-switch-action="remove-case" data-case-index="${i}" title="Quitar opción" aria-label="Quitar opción ${i + 1}">×</button></div><div class="case-body" data-container="${b.id}:case${i}">${x.body.length ? list(x.body) : empty()}</div></div>`).join("")}<div class="switch-actions"><button class="case-action add-case" type="button" data-switch-action="add-case">+ Agregar opción</button></div>${defaultCase}<div class="flow-marker flow-end">FIN SEGÚN</div></div>`;
+  }
   if (["while", "doWhile"].includes(b.type)) {
     const head = `<div class="condition">${ed(b.condition, b.id, "condition")}</div>`,
       body = `<div class="loop-body" data-container="${b.id}:body">${b.body.length ? list(b.body) : empty()}</div>`;
@@ -265,7 +269,10 @@ function bind() {
       if (!block || block.type !== "switch") return;
       if (button.dataset.switchAction === "add-case")
         block.cases.push({ value: `valor${block.cases.length + 1}`, body: [] });
-      else block.cases.splice(+button.dataset.caseIndex, 1);
+      else if (button.dataset.switchAction === "remove-case")
+        block.cases.splice(+button.dataset.caseIndex, 1);
+      else if (button.dataset.switchAction === "add-default") block.default = [];
+      else if (button.dataset.switchAction === "remove-default") block.default = null;
       selectedId = block.id;
       render();
     };
@@ -522,7 +529,7 @@ function nsPlusCode(source) {
     if (block.type === "if")
       return `<div id="${own("conditional-statement")}" droppable="false" class="conditional-statement conditional block-container" type="if"${marker}><div class="header"><div class="option true"><div class="option-block"><canvas class="corner corner-true"></canvas><div class="caption">V</div></div></div><div class="condition">${inputHtml(block.condition)}</div><div class="option false"><div class="option-block"><canvas class="corner corner-false"></canvas><div class="caption">F</div></div></div></div><div class="body"><div class="then">${statements(block.then)}</div><div class="else">${statements(block.else)}</div></div></div>`;
     if (block.type === "switch")
-      return `<div id="${own("conditional-statement")}" droppable="false" class="conditional-statement switch block-container" type="switch"${marker}><div class="header"><div class="option true"><div class="option-block"><canvas class="corner corner-true"></canvas><div class="caption">&nbsp;</div></div></div><div class="condition">${inputHtml(block.expression)}</div><div class="option false"><div class="option-block"><canvas class="corner corner-false"></canvas><div class="caption">&nbsp;</div></div></div></div><div class="body">${block.cases.map((item) => `<div class="case"><div class="test-value">${inputHtml(item.value)}</div><div class="statements">${statements(item.body)}</div></div>`).join("")}<div class="case"><div class="test-value">${inputHtml("default")}</div><div class="statements">${statements(block.default)}</div></div></div></div>`;
+      return `<div id="${own("conditional-statement")}" droppable="false" class="conditional-statement switch block-container" type="switch"${marker}><div class="header"><div class="option true"><div class="option-block"><canvas class="corner corner-true"></canvas><div class="caption">&nbsp;</div></div></div><div class="condition">${inputHtml(block.expression)}</div><div class="option false"><div class="option-block"><canvas class="corner corner-false"></canvas><div class="caption">&nbsp;</div></div></div></div><div class="body">${block.cases.map((item) => `<div class="case"><div class="test-value">${inputHtml(item.value)}</div><div class="statements">${statements(item.body)}</div></div>`).join("")}${Array.isArray(block.default) ? `<div class="case"><div class="test-value">${inputHtml("default")}</div><div class="statements">${statements(block.default)}</div></div>` : ""}</div></div>`;
     if (["while", "doWhile"].includes(block.type)) {
       const originalType = block.type === "doWhile" ? "dowhile" : "while";
       const condition = `<div class="condition-block"><div class="condition">${inputHtml(block.condition)}</div></div>`;
@@ -654,7 +661,7 @@ function parseNsPlusCode(code) {
           element.querySelector(":scope > .header .condition input")?.value ||
           "variable",
         cases: parsed,
-        default: fallback,
+        default: fallbackIndex >= 0 ? fallback : null,
       });
     }
     if (type === "while" || type === "dowhile")
@@ -836,7 +843,7 @@ function compile(source) {
           ends.push(j);
         });
         q.fallback = s.length;
-        add(b.default);
+        if (Array.isArray(b.default)) add(b.default);
         ends.forEach((j) => (j.to = s.length));
       } else if (b.type === "while") {
         const start = s.length,

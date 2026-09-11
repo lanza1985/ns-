@@ -267,6 +267,8 @@ body {
   left: 0;
   /* Center the vertical label before reversing its reading direction. */
   transform: translateY(-50%) rotate(180deg);
+  /* La rotación invierte las esquinas: así la curva queda hacia el contenido. */
+  border-radius: 20px 0 0 20px;
 }
 .drawer {
   position: absolute;
@@ -601,6 +603,7 @@ body {
   border-bottom: 2px solid var(--line);
   cursor: pointer;
   position: relative;
+  font-size: 14px;
 }
 .ns-block:last-child {
   border-bottom: 0;
@@ -717,7 +720,7 @@ body {
   padding: 8px;
   border-bottom: 1px solid var(--line);
 }
-.add-case { padding: 7px 10px; }
+.add-case { padding: 5px 8px; font-size: 12px; }
 .case-action:hover { background: #ffedbd; }
 .nested-empty {
   padding: 13px;
@@ -1086,6 +1089,7 @@ footer {
 .modern-ui .editable { border-bottom-color: #b7c4d8; }
 .modern-ui .edge-tab { top: 50%; border-radius: 0 12px 12px 0; padding: 15px 8px; background: #3858d6; box-shadow: 2px 4px 12px #3858d640; font-size: 13px; }
 .modern-ui .edge-tab.right { border-radius: 12px 0 0 12px; }
+.modern-ui .edge-tab.left { border-radius: 12px 0 0 12px; }
 .modern-ui .drawer { border: 1px solid #e2e8f0; box-shadow: 0 15px 36px #24314a24; }
 .modern-ui .drawer h2 { color: #263c74; font-weight: 700; }
 .modern-ui .acc-head { border: 1px solid #e1e7ef; border-left: 4px solid #b7c5ef; border-radius: 9px; box-shadow: none; color: #3d4c66; font-size: 14px; font-weight: 700; }
