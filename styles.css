@@ -248,6 +248,7 @@ body {
 .edge-tab {
   position: absolute;
   top: 50%;
+  transform: translateY(-50%);
   z-index: 12;
   background: var(--indigo);
   color: #fff;
@@ -264,7 +265,8 @@ body {
 }
 .edge-tab.left {
   left: 0;
-  transform: rotate(180deg);
+  /* Center the vertical label before reversing its reading direction. */
+  transform: translateY(-50%) rotate(180deg);
 }
 .drawer {
   position: absolute;
@@ -1054,7 +1056,7 @@ footer {
 .modern-ui .branch-label { padding: 5px; background: #f7f9fc; border-bottom-color: #d7e0ec; color: #657590; }
 .modern-ui .branch:first-child, .modern-ui .case-label, .modern-ui .loop-body { border-color: #cbd5e1; }
 .modern-ui .editable { border-bottom-color: #b7c4d8; }
-.modern-ui .edge-tab { top: 46%; border-radius: 0 12px 12px 0; padding: 15px 8px; background: #3858d6; box-shadow: 2px 4px 12px #3858d640; font-size: 13px; }
+.modern-ui .edge-tab { top: 50%; border-radius: 0 12px 12px 0; padding: 15px 8px; background: #3858d6; box-shadow: 2px 4px 12px #3858d640; font-size: 13px; }
 .modern-ui .edge-tab.right { border-radius: 12px 0 0 12px; }
 .modern-ui .drawer { border: 1px solid #e2e8f0; box-shadow: 0 15px 36px #24314a24; }
 .modern-ui .drawer h2 { color: #263c74; font-weight: 700; }
@@ -1111,6 +1113,35 @@ footer {
 .type-return {
   background: #d9f4ef;
 }
+/* La paleta usa la misma clave visual que los bloques que inserta. */
+.block-option[data-add="input"] { background: #dff3ff; }
+.block-option[data-add="output"] { background: #def6e7; }
+.block-option[data-add="comment"] { background: #f0f1f2; }
+.block-option[data-add="instruction"],
+.block-option[data-add="call"] { background: #e8edf1; }
+.block-option[data-add="declare"],
+.block-option[data-add="declParameter"],
+.block-option[data-add="declConstant"],
+.block-option[data-add="declVariable"],
+.block-option[data-add="declInitialized"],
+.block-option[data-add="return"] { background: #ece4fb; }
+.block-option[data-add="if"],
+.block-option[data-add="switch"] { background: #fff0bd; }
+.block-option[data-add="while"],
+.block-option[data-add="doWhile"],
+.block-option[data-add="for"],
+.block-option[data-add="foreach"] { background: #ddddff; }
+.block-option[data-add="return"] { background: #d9f4ef; }
+.block-option[data-add="input"] .fake-input,
+.block-option[data-add="output"] .fake-input,
+.block-option[data-add="comment"] .fake-input,
+.block-option[data-add="instruction"] .fake-input,
+.block-option[data-add="declare"] .fake-input,
+.block-option[data-add="call"] .fake-input,
+.block-option[data-add="return"] .fake-input {
+  background: #ffffffa8;
+}
+.no-colors .block-option { background: #fff !important; }
 .type-if > .branches .branch-body,
 .type-switch .case-body,
 .type-while > .loop-body,
@@ -1285,6 +1316,24 @@ footer b::after {
 .dark-theme .type-switch .case-body {
   background: #171c24;
 }
+.dark-theme .block-option[data-add="input"] { background: #18384a; }
+.dark-theme .block-option[data-add="output"],
+.dark-theme .block-option[data-add="return"] { background: #183b34; }
+.dark-theme .block-option[data-add="comment"],
+.dark-theme .block-option[data-add="instruction"],
+.dark-theme .block-option[data-add="call"] { background: #29313b; }
+.dark-theme .block-option[data-add="declare"],
+.dark-theme .block-option[data-add="declParameter"],
+.dark-theme .block-option[data-add="declConstant"],
+.dark-theme .block-option[data-add="declVariable"],
+.dark-theme .block-option[data-add="declInitialized"] { background: #352a4b; }
+.dark-theme .block-option[data-add="if"],
+.dark-theme .block-option[data-add="switch"] { background: #4b3c17; }
+.dark-theme .block-option[data-add="while"],
+.dark-theme .block-option[data-add="doWhile"],
+.dark-theme .block-option[data-add="for"],
+.dark-theme .block-option[data-add="foreach"] { background: #30345c; }
+.dark-theme .block-option .fake-input { background: #ffffff12; }
 .dark-theme .no-colors .ns-block,
 .dark-theme .no-colors .branch-body,
 .dark-theme .no-colors .case-body,
@@ -1297,3 +1346,4 @@ footer b::after {
 .dark-theme .no-colors .tag {
   color: #e7eaf0;
 }
+.dark-theme .no-colors .block-option { background: #202733 !important; }
