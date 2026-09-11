@@ -14,7 +14,6 @@ publicar esa carpeta en cualquier hosting estático.
 ## Estructura
 
 ```text
-dist/
 ├── index.html                 Interfaz y controles
 ├── styles.css                Diseño, colores y tema oscuro
 └── app.js                    Editor, guardado, ejecución y drag & drop
