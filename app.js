@@ -119,17 +119,18 @@ function blockHTML(b) {
   if (b.type === "return")
     return `<div class="${c}" data-id="${b.id}"><div class="line"><b>return</b>${ed(b.expression, b.id, "expression")}</div></div>`;
   if (b.type === "if")
-    return `<div class="${c}" data-id="${b.id}"><div class="condition">${ed(b.condition, b.id, "condition")}</div><div class="branches"><div class="branch"><div class="branch-label">V</div><div class="branch-body" data-container="${b.id}:then">${b.then.length ? list(b.then) : empty()}</div></div><div class="branch"><div class="branch-label">F</div><div class="branch-body" data-container="${b.id}:else">${b.else.length ? list(b.else) : empty()}</div></div></div></div>`;
+    return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SI · INICIO</div><div class="condition">${ed(b.condition, b.id, "condition")}</div><div class="branches"><div class="branch"><div class="branch-label">V</div><div class="branch-body" data-container="${b.id}:then">${b.then.length ? list(b.then) : empty()}</div></div><div class="branch"><div class="branch-label">F</div><div class="branch-body" data-container="${b.id}:else">${b.else.length ? list(b.else) : empty()}</div></div></div><div class="flow-marker flow-end">FIN SI</div></div>`;
   if (b.type === "switch")
-    return `<div class="${c}" data-id="${b.id}"><div class="condition">según ${ed(b.expression, b.id, "expression")}</div>${b.cases.map((x, i) => `<div class="case-row"><div class="case-label">${ed(x.value, b.id, "case" + i)}</div><div class="case-body" data-container="${b.id}:case${i}">${x.body.length ? list(x.body) : empty()}</div></div>`).join("")}<div class="case-row"><div class="case-label">default</div><div class="case-body" data-container="${b.id}:default">${b.default.length ? list(b.default) : empty()}</div></div></div>`;
+    return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SEGÚN · INICIO</div><div class="condition">según ${ed(b.expression, b.id, "expression")}</div>${b.cases.map((x, i) => `<div class="case-row"><div class="case-label">${ed(x.value, b.id, "case" + i)}</div><div class="case-body" data-container="${b.id}:case${i}">${x.body.length ? list(x.body) : empty()}</div></div>`).join("")}<div class="case-row"><div class="case-label">default</div><div class="case-body" data-container="${b.id}:default">${b.default.length ? list(b.default) : empty()}</div></div><div class="flow-marker flow-end">FIN SEGÚN</div></div>`;
   if (["while", "doWhile"].includes(b.type)) {
     const head = `<div class="condition">${ed(b.condition, b.id, "condition")}</div>`,
       body = `<div class="loop-body" data-container="${b.id}:body">${b.body.length ? list(b.body) : empty()}</div>`;
-    return `<div class="${c}" data-id="${b.id}">${b.type === "while" ? head + body : body + head}</div>`;
+    const isWhile = b.type === "while";
+    return `<div class="${c}" data-id="${b.id}">${isWhile ? `<div class="flow-marker flow-start">MIENTRAS · INICIO</div>${head}${body}<div class="flow-marker flow-end">FIN MIENTRAS</div>` : `<div class="flow-marker flow-start">REPETIR · INICIO</div>${body}<div class="flow-marker flow-end">HASTA QUE</div>${head}`}</div>`;
   }
   if (b.type === "for")
-    return `<div class="${c}" data-id="${b.id}"><div class="condition">${ed(b.variable, b.id, "variable")} ← ${ed(b.start, b.id, "start")}, ${ed(b.end, b.id, "end")}, ${ed(b.step, b.id, "step")}</div><div class="loop-body" data-container="${b.id}:body">${b.body.length ? list(b.body) : empty()}</div></div>`;
-  return `<div class="${c}" data-id="${b.id}"><div class="condition">${ed(b.dataType, b.id, "dataType")} ${ed(b.variable, b.id, "variable")} : ${ed(b.collection, b.id, "collection")}</div><div class="loop-body" data-container="${b.id}:body">${b.body.length ? list(b.body) : empty()}</div></div>`;
+    return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">PARA · INICIO</div><div class="condition">${ed(b.variable, b.id, "variable")} ← ${ed(b.start, b.id, "start")}, ${ed(b.end, b.id, "end")}, ${ed(b.step, b.id, "step")}</div><div class="loop-body" data-container="${b.id}:body">${b.body.length ? list(b.body) : empty()}</div><div class="flow-marker flow-end">FIN PARA</div></div>`;
+  return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">PARA CADA · INICIO</div><div class="condition">${ed(b.dataType, b.id, "dataType")} ${ed(b.variable, b.id, "variable")} : ${ed(b.collection, b.id, "collection")}</div><div class="loop-body" data-container="${b.id}:body">${b.body.length ? list(b.body) : empty()}</div><div class="flow-marker flow-end">FIN PARA CADA</div></div>`;
 }
 const empty = () =>
   '<div class="nested-empty">Seleccioná aquí para insertar</div>';

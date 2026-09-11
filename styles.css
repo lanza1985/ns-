@@ -1347,3 +1347,96 @@ footer b::after {
   color: #e7eaf0;
 }
 .dark-theme .no-colors .block-option { background: #202733 !important; }
+
+/* En la vista nueva, los bloques de flujo tienen límites explícitos. */
+.flow-marker {
+  display: none;
+}
+.modern-ui .type-if,
+.modern-ui .type-switch,
+.modern-ui .type-while,
+.modern-ui .type-doWhile,
+.modern-ui .type-for,
+.modern-ui .type-foreach {
+  border: 1px solid #aebde8;
+  border-left-width: 5px;
+  border-radius: 9px;
+  margin: 10px 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 7px #3858d614;
+}
+.modern-ui .type-if { border-left-color: #d59e09; }
+.modern-ui .type-switch { border-left-color: #b7791f; }
+.modern-ui .type-while,
+.modern-ui .type-doWhile,
+.modern-ui .type-for,
+.modern-ui .type-foreach { border-left-color: #8b5cf6; }
+.modern-ui .flow-marker {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 5px 13px;
+  background: #e9eeff;
+  color: #38508e;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.modern-ui .flow-marker::before,
+.modern-ui .flow-marker::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: currentColor;
+  opacity: .3;
+}
+.modern-ui .flow-marker::before { margin-right: 9px; }
+.modern-ui .flow-marker::after { margin-left: 9px; }
+.modern-ui .flow-start { border-bottom: 1px solid #cbd5e1; }
+.modern-ui .flow-end { border-top: 1px solid #cbd5e1; background: #f7f9ff; }
+.modern-ui .type-if > .flow-marker { color: #7a5700; background: #fff7dc; }
+.modern-ui .type-switch > .flow-marker { color: #744210; background: #fff3dc; }
+.modern-ui .type-while > .flow-marker,
+.modern-ui .type-doWhile > .flow-marker,
+.modern-ui .type-for > .flow-marker,
+.modern-ui .type-foreach > .flow-marker { color: #5b21b6; background: #f2ebff; }
+.modern-ui .type-if > .condition,
+.modern-ui .type-switch > .condition,
+.modern-ui .type-while > .condition,
+.modern-ui .type-doWhile > .condition,
+.modern-ui .type-for > .condition,
+.modern-ui .type-foreach > .condition {
+  min-height: 48px;
+}
+.modern-ui .type-if > .branches,
+.modern-ui .type-switch > .case-row,
+.modern-ui .type-while > .loop-body,
+.modern-ui .type-doWhile > .loop-body,
+.modern-ui .type-for > .loop-body,
+.modern-ui .type-foreach > .loop-body {
+  background: #fff;
+}
+.modern-ui.dark-theme .type-if,
+.modern-ui.dark-theme .type-switch,
+.modern-ui.dark-theme .type-while,
+.modern-ui.dark-theme .type-doWhile,
+.modern-ui.dark-theme .type-for,
+.modern-ui.dark-theme .type-foreach { border-color: #526482; }
+.modern-ui.dark-theme .flow-marker,
+.modern-ui.dark-theme .type-if > .flow-marker,
+.modern-ui.dark-theme .type-switch > .flow-marker,
+.modern-ui.dark-theme .type-while > .flow-marker,
+.modern-ui.dark-theme .type-doWhile > .flow-marker,
+.modern-ui.dark-theme .type-for > .flow-marker,
+.modern-ui.dark-theme .type-foreach > .flow-marker {
+  background: #202b3d;
+  color: #c7d2fe;
+  border-color: #465772;
+}
+.modern-ui.dark-theme .type-if > .branches,
+.modern-ui.dark-theme .type-switch > .case-row,
+.modern-ui.dark-theme .type-while > .loop-body,
+.modern-ui.dark-theme .type-doWhile > .loop-body,
+.modern-ui.dark-theme .type-for > .loop-body,
+.modern-ui.dark-theme .type-foreach > .loop-body { background: #171c24; }
