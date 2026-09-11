@@ -1,4 +1,4 @@
-# NS++
+# NS#
 
 Editor de diagramas Nassi–Shneiderman hecho con HTML, CSS y JavaScript clásico.
 No necesita dependencias, compilación ni un servidor.

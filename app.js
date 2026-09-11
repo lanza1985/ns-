@@ -1,5 +1,5 @@
 /*
- * NS++ — Editor ejecutable de diagramas Nassi–Shneiderman
+ * NS# — Editor ejecutable de diagramas Nassi–Shneiderman
  * Autor: Luis Lanzafame
  * Copyright (c) 2026 Luis Lanzafame
  * Software libre bajo licencia MIT. Consultá el archivo LICENSE.
