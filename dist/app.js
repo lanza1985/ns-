@@ -846,6 +846,11 @@ function expr(x) {
     v = Object.values(runner.vars);
   return Function(...n, `"use strict";return (${x})`)(...v);
 }
+function condition(x) {
+  if (/\b[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*=(?!=)/.test(x))
+    throw Error('Usá "==" para comparar valores; "=" no es válido en una condición');
+  return expr(x);
+}
 function assign(code) {
   const m = code.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:=|←)\s*(.+)$/);
   if (!m)
@@ -903,7 +908,7 @@ async function advance() {
       out("return: " + runner.returnValue);
       runner.pc = runner.steps.length;
     } else if (x.kind === "if")
-      runner.pc = expr(b.condition) ? runner.pc + 1 : x.no;
+      runner.pc = condition(b.condition) ? runner.pc + 1 : x.no;
     else if (x.kind === "switch") {
       const val = String(expr(b.expression));
       runner.pc = x.map[val] ?? x.fallback;
@@ -1015,8 +1020,8 @@ function stop() {
   render();
 }
 function ask(b) {
-  inputTitle.textContent = "Entrada de datos";
-  inputLabel.textContent = b.name;
+  inputTitle.textContent = "Ingrese valor para variable: " + b.name;
+  inputLabel.textContent = "";
   runtimeInput.value = "";
   inputDialog.showModal();
   setTimeout(() => runtimeInput.focus(), 20);
