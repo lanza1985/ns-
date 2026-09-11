@@ -394,6 +394,23 @@ darkToggle.onchange = () => {
   localStorage.setItem("ns-theme", darkToggle.checked ? "dark" : "light");
   scheduleAutoSave();
 };
+const NEW_INTERFACE_KEY = "ns-interface";
+const interfaceToggleEl = $("#interfaceToggle");
+const dismissWelcomeBtn = $("#dismissWelcome");
+const applyInterface = (isNew) => {
+  document.body.classList.toggle("modern-ui", isNew);
+  interfaceToggleEl.checked = isNew;
+  localStorage.setItem(NEW_INTERFACE_KEY, isNew ? "modern" : "classic");
+  scheduleAutoSave();
+};
+applyInterface(localStorage.getItem(NEW_INTERFACE_KEY) !== "classic");
+interfaceToggleEl.onchange = () => applyInterface(interfaceToggleEl.checked);
+dismissWelcomeBtn.onclick = () => {
+  document.body.classList.add("welcome-dismissed");
+  localStorage.setItem("ns-welcome-dismissed", "true");
+};
+if (localStorage.getItem("ns-welcome-dismissed") === "true")
+  document.body.classList.add("welcome-dismissed");
 projectName.oninput = render;
 function mutateSelected(fn) {
   if (typeof selectedId !== "number") return;
@@ -1086,6 +1103,7 @@ function localProjectSnapshot() {
     method,
     colors: colorToggle.checked,
     darkTheme: darkToggle.checked,
+    interface: interfaceToggleEl.checked ? "modern" : "classic",
   };
 }
 
@@ -1145,6 +1163,7 @@ function restoreLocalProject(showMessage = true) {
     darkToggle.checked = Boolean(savedProject.darkTheme);
     document.body.classList.toggle("dark-theme", darkToggle.checked);
     localStorage.setItem("ns-theme", darkToggle.checked ? "dark" : "light");
+    applyInterface(savedProject.interface !== "classic");
     nextId = Math.max(0, ...all().map((block) => Number(block.id) || 0)) + 1;
     selectedId = blocks[0]?.id || null;
     updateAutoSaveStatus(savedProject);

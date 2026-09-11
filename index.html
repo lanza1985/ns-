@@ -50,6 +50,11 @@
         >Oscuro <input id="darkToggle" type="checkbox" />
         <span> </span>
       </label>
+      <label class="interface-toggle" title="Cambiar entre la interfaz clásica y la nueva">
+        <span>Vista nueva</span>
+        <input id="interfaceToggle" type="checkbox" />
+        <span class="switch-track" aria-hidden="true"></span>
+      </label>
       <div class="storage-menu">
         <button id="storageBtn" class="topbtn" title="Guardado local">▣</button>
         <div id="storageDropdown" class="dropdown storage-dropdown" hidden>
@@ -87,6 +92,14 @@
         </button>
       </aside>
       <section class="stage">
+        <div class="welcome-banner" aria-label="Ayuda rápida">
+          <div class="welcome-icon">✦</div>
+          <div>
+            <strong>Tu diagrama, paso a paso</strong>
+            <span>Elegí un bloque a la derecha o arrastralo al área de trabajo.</span>
+          </div>
+          <button type="button" id="dismissWelcome" aria-label="Cerrar ayuda">×</button>
+        </div>
         <div id="diagram" class="diagram"></div>
         <div id="emptyState" class="empty" hidden>
           <b>Diagrama vacío</b>
