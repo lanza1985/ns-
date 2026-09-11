@@ -1,0 +1,236 @@
+<!doctype html>
+<!-- NS++ | Autor: Luis Lanzafame | Software libre bajo licencia MIT. -->
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="author" content="Luis Lanzafame" />
+    <meta
+      name="description"
+      content="Editor y ejecutor de diagramas Nassi–Shneiderman"
+    />
+    <title>NS++ · Editor ejecutable</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Barra principal: archivos, declaraciones, apariencia y ejecución. -->
+    <header class="topbar">
+      <div class="ns-logo">NS++</div>
+      <input
+        id="projectName"
+        value="Proyecto sin título"
+        aria-label="Nombre del proyecto"
+      />
+      <button id="newBtn" class="topbtn" title="Nuevo">✚</button>
+      <label class="topbtn file" title="Abrir"
+        >📂<input
+          id="openFile"
+          type="file"
+          accept=".nsplus,.json,application/json"
+        />
+      </label>
+      <button id="saveBtn" class="topbtn" title="Guardar">💾</button>
+      <button id="exportBtn" class="topbtn" title="Imprimir">▣</button>
+      <div class="type-menu">
+        <button id="typeBtn" class="topbtn wide" title="Declaraciones">
+          ✎⌄
+        </button>
+        <div id="typeDropdown" class="dropdown" hidden>
+          <button data-add="declParameter">Parámetro</button>
+          <button data-add="declConstant">Constante</button>
+          <button data-add="declVariable">Variable</button>
+          <button data-add="declInitialized">Variable inicializada</button>
+        </div>
+      </div>
+      <label class="color-toggle"
+        >Colorear <input id="colorToggle" type="checkbox" checked />
+        <span> </span>
+      </label>
+      <label class="theme-toggle"
+        >Oscuro <input id="darkToggle" type="checkbox" />
+        <span> </span>
+      </label>
+      <div class="storage-menu">
+        <button id="storageBtn" class="topbtn" title="Guardado local">▣</button>
+        <div id="storageDropdown" class="dropdown storage-dropdown" hidden>
+          <strong>Guardado local</strong>
+          <small id="autoSaveStatus">Todavía no hay una copia local.</small>
+          <button id="localSaveBtn">Guardar ahora</button>
+          <button id="localRestoreBtn">Restaurar copia</button>
+          <button id="localDeleteBtn" class="danger-option">
+            Eliminar copia
+          </button>
+        </div>
+      </div>
+      <div class="runbar">
+        <button id="runBtn">▶ Ejecutar</button>
+        <button id="stepBtn">Paso</button>
+        <button id="pauseBtn" disabled>Ⅱ</button>
+        <button id="resetBtn">↺</button>
+      </div>
+    </header>
+    <!-- Área central con los paneles laterales y el diagrama editable. -->
+    <main id="main">
+      <button id="diagramsTab" class="edge-tab left">Diagramas</button>
+      <aside id="diagramsPanel" class="drawer diagrams-drawer">
+        <button class="drawer-close" data-close="diagramsPanel">×</button>
+        <h2>Diagramas</h2>
+        <button class="project-card active">
+          <span class="mini-diagram">▤</span>
+          <span>
+            <b id="projectCardName">Proyecto sin título</b>
+            <small>Diagrama principal</small>
+          </span>
+        </button>
+        <button id="loadExample" class="outline full">
+          Cargar ejemplo ejecutable
+        </button>
+      </aside>
+      <section class="stage">
+        <div id="diagram" class="diagram"></div>
+        <div id="emptyState" class="empty" hidden>
+          <b>Diagrama vacío</b>
+          <span>Abrí “Bloques” y agregá una instrucción.</span>
+        </div>
+      </section>
+      <button id="blocksTab" class="edge-tab right">Bloques</button>
+      <aside id="blocksPanel" class="drawer blocks-drawer open">
+        <div class="drawer-tools">
+          <button id="moveDown" title="Bajar">↓</button>
+          <button id="moveUp" title="Subir">↑</button>
+          <button id="duplicateBtn" title="Duplicar">▣</button>
+          <button id="deleteBtn" title="Eliminar" class="red">⌫</button>
+          <button class="drawer-close" data-close="blocksPanel">×</button>
+        </div>
+        <div class="accordion">
+          <button class="acc-head open">Entrada / Salida <span>⌃</span></button>
+          <div class="acc-body open">
+            <button class="block-option" data-add="input">
+              <b>E</b>
+              <span class="fake-input">variable</span>
+            </button>
+            <button class="block-option" data-add="output">
+              <b>S</b>
+              <span class="fake-input">expresión</span>
+            </button>
+          </div>
+          <button class="acc-head">Bloques <span>⌄</span></button>
+          <div class="acc-body">
+            <button class="block-option" data-add="comment">
+              <b>/*</b>
+              <span class="fake-input">comentario</span>
+              <b>*/</b>
+            </button>
+            <button class="block-option" data-add="instruction">
+              <span class="fake-input wide">instrucción</span>
+            </button>
+            <button class="block-option" data-add="declare">
+              <span class="fake-input">variable</span>
+              <b>←</b>
+              <span class="fake-input">expresión</span>
+            </button>
+          </div>
+          <button class="acc-head">Selección <span>⌄</span></button>
+          <div class="acc-body">
+            <button class="block-option split-icon" data-add="if">
+              <i>V</i>
+              <span>condición</span>
+              <i>F</i>
+            </button>
+            <button class="block-option cases-icon" data-add="switch">
+              <span>variable</span>
+              <i>valor</i>
+              <i>valor</i>
+              <i>default</i>
+            </button>
+          </div>
+          <button class="acc-head">Repetición <span>⌄</span></button>
+          <div class="acc-body">
+            <button class="block-option loop-opt" data-add="while">
+              <span>condición</span>
+              <b>↻</b>
+            </button>
+            <button class="block-option loop-opt" data-add="doWhile">
+              <b>↻</b>
+              <span>condición</span>
+            </button>
+            <button class="block-option" data-add="for">
+              <span>var ← inicio, fin, paso</span>
+            </button>
+            <button class="block-option" data-add="foreach">
+              <span>Tipo variable : colección</span>
+            </button>
+          </div>
+          <button class="acc-head">Funciones / Métodos <span>⌄</span></button>
+          <div class="acc-body">
+            <button class="block-option" data-add="call">
+              <span class="fake-input wide">funcion(params)</span>
+            </button>
+            <button class="block-option" data-add="return">
+              <b>return</b>
+              <span class="fake-input">expresión</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+      <!-- Panel que muestra variables, salida y velocidad de ejecución. -->
+      <aside id="runtimePanel" class="runtime-panel">
+        <div class="runtime-head">
+          <b>Ejecución</b>
+          <span id="status" class="status ready">Listo</span>
+          <button id="runtimeClose">×</button>
+        </div>
+        <div class="runtime-content">
+          <section>
+            <div class="section-title">
+              Variables <button id="clearVars">Limpiar</button>
+            </div>
+            <div id="variables" class="variables">
+              <span class="muted">Sin valores</span>
+            </div>
+          </section>
+          <section>
+            <div class="section-title">
+              Consola <button id="clearConsole">Limpiar</button>
+            </div>
+            <div id="console" class="console">
+              <div class="muted">La salida aparecerá acá.</div>
+            </div>
+          </section>
+          <label class="speed"
+            >Velocidad
+            <input
+              id="speed"
+              type="range"
+              min="100"
+              max="1200"
+              value="600"
+              step="100"
+            />
+            <span id="speedLabel">0,6 s</span>
+          </label>
+        </div>
+      </aside>
+    </main>
+    <footer>
+      <b>NS++ · Creado por Luis Lanzafame · Software libre — Licencia MIT</b>
+    </footer>
+    <!-- Ventana utilizada por cada bloque E para solicitar un valor. -->
+    <dialog id="inputDialog">
+      <form id="inputForm" method="dialog">
+        <h2 id="inputTitle">Ingresá un valor</h2>
+        <label>
+          <span id="inputLabel">variable</span>
+          <input id="runtimeInput" autocomplete="off" />
+        </label>
+        <div>
+          <button value="cancel">Cancelar ejecución</button>
+          <button value="default" class="indigo">Continuar</button>
+        </div>
+      </form>
+    </dialog>
+    <div id="toast" class="toast"></div>
+    <!-- JavaScript clásico: funciona incluso al abrir este HTML con doble clic. -->
+    <script src="app.js"></script>
+  </body>
+</html>
