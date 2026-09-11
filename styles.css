@@ -681,16 +681,44 @@ body {
   border-left: 2px solid var(--line);
 }
 .case-row {
-  display: grid;
-  grid-template-columns: 100px 1fr;
+  display: flex;
+  flex-direction: column;
   border-bottom: 1px solid var(--line);
 }
 .case-label {
-  display: grid;
-  place-items: center;
-  border-right: 2px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--line);
   font-weight: bold;
 }
+.case-action {
+  border: 1px solid #c69236;
+  border-radius: 5px;
+  background: #fff9e8;
+  color: #744210;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+}
+.remove-case {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 18px;
+}
+.switch-actions {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.add-case { padding: 7px 10px; }
+.case-action:hover { background: #ffedbd; }
 .nested-empty {
   padding: 13px;
   text-align: center;
@@ -1411,6 +1439,7 @@ footer b::after {
 }
 .modern-ui .type-if > .branches,
 .modern-ui .type-switch > .case-row,
+.modern-ui .type-switch > .switch-actions,
 .modern-ui .type-while > .loop-body,
 .modern-ui .type-doWhile > .loop-body,
 .modern-ui .type-for > .loop-body,
@@ -1436,7 +1465,10 @@ footer b::after {
 }
 .modern-ui.dark-theme .type-if > .branches,
 .modern-ui.dark-theme .type-switch > .case-row,
+.modern-ui.dark-theme .type-switch > .switch-actions,
 .modern-ui.dark-theme .type-while > .loop-body,
 .modern-ui.dark-theme .type-doWhile > .loop-body,
 .modern-ui.dark-theme .type-for > .loop-body,
 .modern-ui.dark-theme .type-foreach > .loop-body { background: #171c24; }
+.dark-theme .case-action { border-color: #b88730; background: #382d15; color: #ffe2a7; }
+.dark-theme .case-action:hover { background: #51401d; }

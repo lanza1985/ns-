@@ -121,7 +121,7 @@ function blockHTML(b) {
   if (b.type === "if")
     return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SI · INICIO</div><div class="condition">${ed(b.condition, b.id, "condition")}</div><div class="branches"><div class="branch"><div class="branch-label">V</div><div class="branch-body" data-container="${b.id}:then">${b.then.length ? list(b.then) : empty()}</div></div><div class="branch"><div class="branch-label">F</div><div class="branch-body" data-container="${b.id}:else">${b.else.length ? list(b.else) : empty()}</div></div></div><div class="flow-marker flow-end">FIN SI</div></div>`;
   if (b.type === "switch")
-    return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SEGÚN · INICIO</div><div class="condition">según ${ed(b.expression, b.id, "expression")}</div>${b.cases.map((x, i) => `<div class="case-row"><div class="case-label">${ed(x.value, b.id, "case" + i)}</div><div class="case-body" data-container="${b.id}:case${i}">${x.body.length ? list(x.body) : empty()}</div></div>`).join("")}<div class="case-row"><div class="case-label">default</div><div class="case-body" data-container="${b.id}:default">${b.default.length ? list(b.default) : empty()}</div></div><div class="flow-marker flow-end">FIN SEGÚN</div></div>`;
+    return `<div class="${c}" data-id="${b.id}"><div class="flow-marker flow-start">SEGÚN · INICIO</div><div class="condition">según ${ed(b.expression, b.id, "expression")}</div>${b.cases.map((x, i) => `<div class="case-row"><div class="case-label">${ed(x.value, b.id, "case" + i)}<button class="case-action remove-case" type="button" data-switch-action="remove-case" data-case-index="${i}" title="Quitar opción" aria-label="Quitar opción ${i + 1}">×</button></div><div class="case-body" data-container="${b.id}:case${i}">${x.body.length ? list(x.body) : empty()}</div></div>`).join("")}<div class="switch-actions"><button class="case-action add-case" type="button" data-switch-action="add-case">+ Agregar opción</button></div><div class="case-row default-case"><div class="case-label">default</div><div class="case-body" data-container="${b.id}:default">${b.default.length ? list(b.default) : empty()}</div></div><div class="flow-marker flow-end">FIN SEGÚN</div></div>`;
   if (["while", "doWhile"].includes(b.type)) {
     const head = `<div class="condition">${ed(b.condition, b.id, "condition")}</div>`,
       body = `<div class="loop-body" data-container="${b.id}:body">${b.body.length ? list(b.body) : empty()}</div>`;
@@ -256,6 +256,18 @@ function bind() {
         e.preventDefault();
         el.blur();
       }
+    };
+  });
+  $$('[data-switch-action]').forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      const block = find(+button.closest(".ns-block").dataset.id);
+      if (!block || block.type !== "switch") return;
+      if (button.dataset.switchAction === "add-case")
+        block.cases.push({ value: `valor${block.cases.length + 1}`, body: [] });
+      else block.cases.splice(+button.dataset.caseIndex, 1);
+      selectedId = block.id;
+      render();
     };
   });
   $$("[data-remove-declaration]").forEach(
@@ -1268,7 +1280,7 @@ function setupDragDrop() {
     el.draggable = true;
     el.title = "Arrastrá para mover";
     el.ondragstart = (e) => {
-      if (e.target.closest(".editable")) {
+      if (e.target.closest(".editable") || e.target.closest("[data-switch-action]")) {
         e.preventDefault();
         return;
       }
