@@ -1413,6 +1413,15 @@ function targetListFor(value) {
 
 // El elemento de salida no puede compartir el nombre con window.console.
 const outputConsole = $("#console");
+const consoleSize = $("#consoleSize");
+const consoleSizeLabel = $("#consoleSizeLabel");
+const setConsoleSize = () => {
+  // El panel crece desde abajo; la salida conserva el scroll dentro de sí misma.
+  runtimePanel.style.height = `${Number(consoleSize.value) + 190}px`;
+  consoleSizeLabel.textContent = `${consoleSize.value} px`;
+};
+consoleSize.oninput = setConsoleSize;
+setConsoleSize();
 out = function (value, className = "") {
   const line = document.createElement("div");
   line.textContent = String(value);

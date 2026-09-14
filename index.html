@@ -211,13 +211,25 @@
               <span class="muted">Sin valores</span>
             </div>
           </section>
-          <section>
+          <section class="console-section">
             <div class="section-title">
               Consola <button id="clearConsole">Limpiar</button>
             </div>
             <div id="console" class="console">
               <div class="muted">La salida aparecerá acá.</div>
             </div>
+            <label class="console-size" for="consoleSize">
+              Tamaño de la consola
+              <input
+                id="consoleSize"
+                type="range"
+                min="140"
+                max="480"
+                value="240"
+                step="10"
+              />
+              <span id="consoleSizeLabel">240 px</span>
+            </label>
           </section>
           <label class="speed"
             >Velocidad
