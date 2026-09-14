@@ -1241,6 +1241,52 @@ footer b::after {
 .diagram.drop-inside {
   min-height: 80px;
 }
+.trash-drop-zone {
+  position: fixed;
+  right: 24px;
+  bottom: 46px;
+  z-index: 30;
+  width: 76px;
+  min-height: 76px;
+  display: grid;
+  place-items: center;
+  gap: 1px;
+  padding: 8px;
+  border: 2px solid #c62828;
+  border-radius: 50%;
+  background: #fff;
+  color: #b71c1c;
+  box-shadow: 0 4px 15px #0003;
+  cursor: default;
+  transition: transform .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.trash-drop-zone > span:first-child {
+  font-size: 28px;
+  line-height: 1;
+}
+.trash-drop-label {
+  font-size: 11px;
+  font-weight: 700;
+}
+.trash-drop-zone.drag-over {
+  transform: scale(1.12);
+  background: #ffebee;
+  box-shadow: 0 0 0 6px #ef535044, 0 6px 20px #0004;
+}
+.dark-theme .trash-drop-zone {
+  background: #222934;
+  color: #ff8a80;
+  border-color: #ef5350;
+}
+@media (max-width: 600px) {
+  .trash-drop-zone {
+    right: 14px;
+    bottom: 40px;
+    width: 62px;
+    min-height: 62px;
+  }
+  .trash-drop-label { font-size: 10px; }
+}
 
 /* Bucles: encabezado y carril claramente diferenciados */
 .type-while,

@@ -112,7 +112,6 @@
           <button id="moveDown" title="Bajar">↓</button>
           <button id="moveUp" title="Subir">↑</button>
           <button id="duplicateBtn" title="Duplicar">▣</button>
-          <button id="deleteBtn" title="Eliminar" class="red">⌫</button>
           <button class="drawer-close" data-close="blocksPanel">×</button>
         </div>
         <div class="accordion">
@@ -186,6 +185,16 @@
           </div>
         </div>
       </aside>
+      <button
+        id="trashDropZone"
+        class="trash-drop-zone"
+        type="button"
+        aria-label="Arrastrá aquí un bloque para eliminarlo"
+        title="Arrastrá aquí un bloque para eliminarlo"
+      >
+        <span aria-hidden="true">🗑</span>
+        <span class="trash-drop-label">Eliminar</span>
+      </button>
       <!-- Panel que muestra variables, salida y velocidad de ejecución. -->
       <aside id="runtimePanel" class="runtime-panel">
         <div class="runtime-head">

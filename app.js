@@ -55,7 +55,8 @@ let nextId = 1,
   runner = null,
   timer = null,
   pendingInput = null,
-  autoSaveTimer = null;
+  autoSaveTimer = null,
+  dragged = null;
 
 // Clave única utilizada para no mezclar este proyecto con otros sitios.
 const LOCAL_STORAGE_KEY = "nsplus-2-autosave";
@@ -437,12 +438,6 @@ function mutateSelected(fn) {
   const l = locate(selectedId);
   if (l) fn(l);
 }
-deleteBtn.onclick = () =>
-  mutateSelected((l) => {
-    l.a.splice(l.i, 1);
-    selectedId = null;
-    render();
-  });
 moveUp.onclick = () =>
   mutateSelected((l) => {
     if (l.i) {
@@ -1233,7 +1228,6 @@ render = function () {
 render();
 
 // ---------- DRAG & DROP ----------
-let dragged = null;
 function includesBlock(block, id) {
   let yes = block.id === id;
   for (const key of ["then", "else", "body", "default"])
@@ -1291,6 +1285,10 @@ function setupDragDrop() {
         e.preventDefault();
         return;
       }
+      // Los bloques anidados también viven dentro de un .ns-block. Sin cortar
+      // la propagación, el padre reemplaza este payload y se mueve/elimina el
+      // contenedor entero en lugar del bloque que se tomó.
+      e.stopPropagation();
       dragged = { origin: "diagram", id: Number(el.dataset.id) };
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("application/x-ns-block", JSON.stringify(dragged));
@@ -1376,6 +1374,33 @@ function setupDragDrop() {
     finishDrop();
     diagram.classList.remove("drop-inside");
     render();
+  };
+
+  // El cesto acepta solamente bloques que ya pertenecen al diagrama. Así,
+  // arrastrar desde la paleta hacia él nunca elimina ni crea un bloque.
+  trashDropZone.ondragover = (e) => {
+    if (dragPayload(e)?.origin !== "diagram") return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    trashDropZone.classList.add("drag-over");
+  };
+  trashDropZone.ondragleave = (e) => {
+    if (!trashDropZone.contains(e.relatedTarget))
+      trashDropZone.classList.remove("drag-over");
+  };
+  trashDropZone.ondrop = (e) => {
+    e.preventDefault();
+    const payload = dragPayload(e);
+    trashDropZone.classList.remove("drag-over");
+    if (payload?.origin !== "diagram") return finishDrop();
+
+    const removed = removeDragged(payload);
+    if (removed) {
+      selectedId = null;
+      toast("Bloque eliminado");
+      render();
+    }
+    finishDrop();
   };
 }
 function targetListFor(value) {
