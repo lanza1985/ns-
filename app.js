@@ -872,11 +872,29 @@ function compile(source) {
   add(source);
   return s;
 }
+// Los nombres importados desde .nsplus son texto libre. No todos pueden usarse
+// como parámetros de Function (por ejemplo, "total anual" o "class").
+const JS_IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
+const JS_RESERVED_WORDS = new Set([
+  "await", "break", "case", "catch", "class", "const", "continue", "debugger",
+  "default", "delete", "do", "else", "enum", "export", "extends", "false",
+  "finally", "for", "function", "if", "implements", "import", "in", "instanceof",
+  "interface", "let", "new", "null", "package", "private", "protected", "public",
+  "return", "super", "switch", "static", "this", "throw", "true", "try", "typeof",
+  "undefined", "var", "void", "while", "with", "yield", "arguments", "eval",
+]);
+
 function expr(x) {
-  // Evalúa una expresión usando solamente las variables creadas por el programa.
-  const n = Object.keys(runner.vars),
-    v = Object.values(runner.vars);
-  return Function(...n, `"use strict";return (${x})`)(...v);
+  // Evalúa una expresión usando solamente las variables válidas del programa.
+  // Así, un nombre inválido que no participa en esta expresión no bloquea toda
+  // la ejecución del diagrama importado.
+  const entries = Object.entries(runner.vars).filter(
+    ([name]) => JS_IDENTIFIER.test(name) && !JS_RESERVED_WORDS.has(name),
+  );
+  return Function(
+    ...entries.map(([name]) => name),
+    `"use strict";return (${String(x ?? "")})`,
+  )(...entries.map(([, value]) => value));
 }
 function condition(x) {
   if (/\b[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*=(?!=)/.test(x))
@@ -958,8 +976,14 @@ async function advance() {
     else if (x.kind === "jump") runner.pc = x.to;
     else if (x.kind === "forInit") {
       const step = Number(expr(b.step));
-      runner.loops[b.id] = { end: Number(expr(b.end)), step };
-      runner.vars[b.variable] = Number(expr(b.start));
+      const end = Number(expr(b.end));
+      const start = Number(expr(b.start));
+      if (!Number.isFinite(step) || step === 0)
+        throw Error("El paso del PARA debe ser un número distinto de cero");
+      if (!Number.isFinite(start) || !Number.isFinite(end))
+        throw Error("Los límites del PARA deben ser números válidos");
+      runner.loops[b.id] = { end, step };
+      runner.vars[b.variable] = start;
       runner.pc = ok(runner.vars[b.variable], runner.loops[b.id])
         ? runner.pc + 1
         : x.end;
