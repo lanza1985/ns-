@@ -917,7 +917,14 @@ async function advance() {
   render();
   const b = x.b;
   try {
-    if (["comment", "variable"].includes(x.kind)) runner.pc++;
+    if (x.kind === "comment") runner.pc++;
+    else if (x.kind === "variable") {
+      // Una declaración sin valor también debe existir en el contexto. Esto es
+      // especialmente importante al importar .nsplus, cuyos locales simples
+      // llegan como `variable` y pueden recibir un valor más adelante.
+      runner.vars[b.name] = undefined;
+      runner.pc++;
+    }
     else if (x.kind === "instruction") {
       assign(b.code);
       runner.pc++;
