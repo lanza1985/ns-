@@ -571,6 +571,9 @@ function nsPlusCode(source) {
 
 function createNsPlusFile() {
   // El archivo final respeta exactamente el contenedor .nsplus versión 0.5.
+  // Además del HTML que entiende NS Plus, conservamos nuestro árbol original.
+  // Volver a deducirlo desde HTML hace que detalles de diagramas anidados se
+  // puedan perder (y que el resultado dependa del parser del navegador).
   const now = new Date().toISOString();
   const name = projectName.value || "Proyecto sin título";
   const audit = [
@@ -595,8 +598,28 @@ function createNsPlusFile() {
     date: now,
     minutes: 0,
     meta: utf8ToBase64(JSON.stringify(audit)),
+    editorState: {
+      version: 1,
+      blocks,
+      declarations,
+      method,
+    },
   };
   return { ver: 0.5, data: reverse(utf8ToBase64(JSON.stringify(project))) };
+}
+
+// Los archivos de otros editores no incluyen editorState: en ese caso se usa
+// el lector de HTML de siempre. Sólo aceptamos la copia exacta si tiene la
+// forma mínima esperada, para no convertir un archivo mal formado en proyecto.
+function hasEditorState(value) {
+  return (
+    value &&
+    value.version === 1 &&
+    Array.isArray(value.blocks) &&
+    Array.isArray(value.declarations) &&
+    value.method &&
+    typeof value.method === "object"
+  );
 }
 
 function parseNsPlusCode(code) {
@@ -769,10 +792,20 @@ openFile.onchange = async (e) => {
     if (d.ver === 0.5 && typeof d.data === "string") {
       const original = JSON.parse(base64ToUtf8(reverse(d.data)));
       const diagramData = original.diagrams?.[0];
-      const parsedDiagram = parseNsPlusCode(diagramData?.code || "");
-      blocks = parsedDiagram.blocks;
-      declarations = parsedDiagram.declarations;
-      method = parsedDiagram.method;
+      if (hasEditorState(original.editorState)) {
+        // Es un archivo guardado por este editor: no reinterpretar el HTML.
+        // JSON.parse ya creó objetos nuevos, por lo que no se comparte estado.
+        blocks = original.editorState.blocks;
+        declarations = original.editorState.declarations;
+        method = original.editorState.method;
+      } else {
+        // Mantiene la importación de archivos creados por NS Plus u versiones
+        // anteriores de esta aplicación.
+        const parsedDiagram = parseNsPlusCode(diagramData?.code || "");
+        blocks = parsedDiagram.blocks;
+        declarations = parsedDiagram.declarations;
+        method = parsedDiagram.method;
+      }
       projectName.value =
         original.name || diagramData?.name || "Proyecto importado";
     } else {
