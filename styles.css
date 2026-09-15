@@ -891,6 +891,40 @@ dialog button {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+.call-autocomplete {
+  position: fixed;
+  z-index: 60;
+  width: min(290px, calc(100vw - 20px));
+  max-height: 170px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid #8d9ac2;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 5px 16px #0003;
+}
+.call-autocomplete button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 9px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #263655;
+  cursor: pointer;
+  font: 13px ui-monospace, SFMono-Regular, Consolas, monospace;
+  text-align: left;
+}
+.call-autocomplete button.active,
+.call-autocomplete button:hover {
+  background: #e7edff;
+}
+.call-autocomplete small {
+  color: #667085;
+  white-space: nowrap;
+}
 
 .dark-theme {
   color: #e7eaf0;
@@ -942,6 +976,14 @@ dialog button {
 .dark-theme .storage-dropdown small {
   color: #b6bfcc;
 }
+.dark-theme .call-autocomplete {
+  border-color: #526482;
+  background: #202b3d;
+}
+.dark-theme .call-autocomplete button { color: #e2e8f0; }
+.dark-theme .call-autocomplete button.active,
+.dark-theme .call-autocomplete button:hover { background: #334155; }
+.dark-theme .call-autocomplete small { color: #b6c2d6; }
 .dark-theme .fake-input,
 .dark-theme .block-option > span,
 .dark-theme .branch-label,
@@ -1235,6 +1277,15 @@ footer {
 .type-instruction,
 .type-call {
   background: #e8edf1;
+}
+.ns-block.invalid-call {
+  background: #ffd7d7 !important;
+  color: #8d1d1d;
+  box-shadow: inset 0 0 0 2px #d32f2f;
+}
+.dark-theme .ns-block.invalid-call {
+  background: #5b2025 !important;
+  color: #fff;
 }
 .type-declare,
 .type-variable,

@@ -10,7 +10,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 // Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.1.2";
 
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>
@@ -64,6 +64,13 @@ let nextId = 1,
 // Un proyecto puede contener tantos diagramas como necesite. `blocks`,
 // `declarations` y `method` siempre apuntan al diagrama que se está editando.
 let diagrams = [], activeDiagramId = null, nextDiagramId = 1;
+
+// Menú contextual para completar llamadas a diagramas del proyecto.
+const callAutocomplete = document.createElement("div");
+callAutocomplete.className = "call-autocomplete";
+callAutocomplete.hidden = true;
+document.body.append(callAutocomplete);
+let callSuggestions = [], activeCallSuggestion = 0, autocompleteField = null;
 
 // Algunos navegadores no permiten leer tipos personalizados de DataTransfer
 // durante dragover. El estado en memoria es la fuente de verdad para los
@@ -130,7 +137,8 @@ const list = (a) => a.map(blockHTML).join("");
 
 // Convierte un bloque de datos en el HTML visible del diagrama.
 function blockHTML(b) {
-  const c = `ns-block ${b.id === selectedId ? "selected " : ""}${runner?.current === b.id ? "active " : ""}${runner?.error === b.id ? "execution-error " : ""}`;
+  const callError = b.type === "call" ? callValidationError(b.code) : "";
+  const c = `ns-block ${b.id === selectedId ? "selected " : ""}${runner?.current === b.id ? "active " : ""}${runner?.error === b.id ? "execution-error " : ""}${callError ? "invalid-call " : ""}`;
   if (b.type === "input")
     return `<div class="${c}" data-id="${b.id}"><div class="line"><b class="tag">E</b>${ed(b.name, b.id, "name")}</div></div>`;
   if (b.type === "output")
@@ -138,7 +146,7 @@ function blockHTML(b) {
   if (b.type === "comment")
     return `<div class="${c}" data-id="${b.id}"><div class="line comment">/* ${ed(b.text, b.id, "text")} */</div></div>`;
   if (["instruction", "call"].includes(b.type))
-    return `<div class="${c}" data-id="${b.id}"><div class="line">${ed(b.code, b.id, "code")}</div></div>`;
+    return `<div class="${c}" data-id="${b.id}"${callError ? ` title="${esc(callError)}"` : ""}><div class="line">${ed(b.code, b.id, "code")}</div></div>`;
   if (["declare", "constant", "parameter", "variable"].includes(b.type)) {
     const label = {
       declare: "",
@@ -315,7 +323,12 @@ function bind() {
   );
   $$(".editable").forEach((el) => {
     el.onclick = (e) => e.stopPropagation();
+    if (el.dataset.field === "code" && find(+el.dataset.id)?.type === "call") {
+      el.onfocus = () => showCallAutocomplete(el);
+      el.oninput = () => showCallAutocomplete(el);
+    }
     el.onblur = () => {
+      window.setTimeout(hideCallAutocomplete, 0);
       if (el.dataset.method) {
         method[el.dataset.method] = el.textContent.trim();
         render();
@@ -335,6 +348,24 @@ function bind() {
       render();
     };
     el.onkeydown = (e) => {
+      if (autocompleteField === el && !callAutocomplete.hidden) {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          activeCallSuggestion = (activeCallSuggestion + (e.key === "ArrowDown" ? 1 : -1) + callSuggestions.length) % callSuggestions.length;
+          drawCallAutocomplete();
+          return;
+        }
+        if ((e.key === "Enter" || e.key === "Tab") && callSuggestions.length) {
+          e.preventDefault();
+          applyCallSuggestion(callSuggestions[activeCallSuggestion]);
+          return;
+        }
+        if (e.key === "Escape") {
+          e.preventDefault();
+          hideCallAutocomplete();
+          return;
+        }
+      }
       if (e.key === "Enter") {
         e.preventDefault();
         el.blur();
@@ -1047,13 +1078,143 @@ function splitArguments(source) {
   return result;
 }
 
+function caretOffset(element) {
+  const selection = window.getSelection();
+  if (!selection?.rangeCount || !element.contains(selection.anchorNode)) return element.textContent.length;
+  const range = selection.getRangeAt(0).cloneRange();
+  range.selectNodeContents(element);
+  range.setEnd(selection.anchorNode, selection.anchorOffset);
+  return range.toString().length;
+}
+
+function setCaretOffset(element, offset) {
+  const range = document.createRange();
+  const text = element.firstChild || element.appendChild(document.createTextNode(""));
+  range.setStart(text, Math.min(offset, text.textContent.length));
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function callParameters(item) {
+  return item.declarations
+    .filter((declaration) => declaration.kind === "parameter")
+    .map((declaration) => `${declaration.dataType} ${declaration.name}`)
+    .join(", ");
+}
+
+function callSuggestionsFor(code, offset) {
+  const before = code.slice(0, offset);
+  const classMatch = before.match(/^\s*(?:[A-Za-z_$][\w$]*\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)?$/);
+  if (classMatch) {
+    const fragment = classMatch[1] || "";
+    const classes = [...new Set(diagrams.map((item) => String(item.method.className ?? "").trim()).filter(Boolean))];
+    return classes
+      .filter((name) => name.toLowerCase().startsWith(fragment.toLowerCase()))
+      .map((name) => ({ kind: "class", name, start: offset - fragment.length, end: offset }));
+  }
+  const methodMatch = before.match(/^\s*(?:[A-Za-z_$][\w$]*\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)?$/);
+  if (!methodMatch) return [];
+  const [, className, fragment = ""] = methodMatch;
+  return diagrams
+    .filter((item) => String(item.method.className ?? "").trim() === className)
+    .filter((item) => String(item.method.name ?? "").trim().toLowerCase().startsWith(fragment.toLowerCase()))
+    .map((item) => ({
+      kind: "method",
+      name: String(item.method.name).trim(),
+      parameters: callParameters(item),
+      start: offset - fragment.length,
+      end: offset,
+    }));
+}
+
+function showCallAutocomplete(element) {
+  const offset = caretOffset(element);
+  callSuggestions = callSuggestionsFor(element.textContent, offset);
+  autocompleteField = element;
+  activeCallSuggestion = 0;
+  if (!callSuggestions.length) return hideCallAutocomplete();
+  const selection = window.getSelection();
+  const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+  const rect = range?.getBoundingClientRect().width || range?.getBoundingClientRect().height
+    ? range.getBoundingClientRect() : element.getBoundingClientRect();
+  callAutocomplete.style.left = `${Math.min(rect.left, window.innerWidth - 300)}px`;
+  callAutocomplete.style.top = `${Math.min(rect.bottom + 5, window.innerHeight - 180)}px`;
+  callAutocomplete.hidden = false;
+  drawCallAutocomplete();
+}
+
+function drawCallAutocomplete() {
+  callAutocomplete.innerHTML = callSuggestions.map((suggestion, index) => {
+    const detail = suggestion.kind === "class" ? "Clase" : `(${suggestion.parameters})`;
+    return `<button type="button" class="${index === activeCallSuggestion ? "active" : ""}" data-call-suggestion="${index}"><b>${esc(suggestion.name)}</b><small>${esc(detail)}</small></button>`;
+  }).join("");
+  $$('[data-call-suggestion]').forEach((button) => {
+    button.onmousedown = (event) => {
+      event.preventDefault();
+      applyCallSuggestion(callSuggestions[+button.dataset.callSuggestion]);
+    };
+  });
+}
+
+function applyCallSuggestion(suggestion) {
+  const element = autocompleteField;
+  if (!element || !suggestion) return;
+  const code = element.textContent;
+  const replacement = suggestion.kind === "class" ? `${suggestion.name}.` : `${suggestion.name}()`;
+  const caret = suggestion.kind === "class" ? replacement.length : replacement.length - 1;
+  element.textContent = code.slice(0, suggestion.start) + replacement + code.slice(suggestion.end);
+  const newOffset = suggestion.start + caret;
+  setCaretOffset(element, newOffset);
+  const block = find(+element.dataset.id);
+  if (block) block.code = element.textContent.trim();
+  const blockElement = element.closest(".ns-block");
+  const error = callValidationError(element.textContent);
+  blockElement.classList.toggle("invalid-call", Boolean(error));
+  if (error) blockElement.title = error;
+  else blockElement.removeAttribute("title");
+  scheduleAutoSave();
+  showCallAutocomplete(element);
+}
+
+function hideCallAutocomplete() {
+  callAutocomplete.hidden = true;
+  callSuggestions = [];
+  autocompleteField = null;
+}
+
+function parseDiagramCall(code) {
+  return String(code).match(/^\s*(?:([A-Za-z_$][\w$]*)\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\((.*)\)\s*$/);
+}
+
+// Devuelve un mensaje si el bloque no puede invocar ni un diagrama del
+// proyecto ni un método JavaScript disponible. Se usa al dibujar para que el
+// error se vea antes de ejecutar el programa.
+function callValidationError(code) {
+  const match = parseDiagramCall(code);
+  if (!match) return "Usá Clase.metodo(argumentos) en el bloque Funciones";
+  const [, , className, methodName] = match;
+  const target = diagrams.find(
+    (item) => String(item.method.className ?? "").trim() === className &&
+      String(item.method.name ?? "").trim() === methodName,
+  );
+  if (target) return "";
+  const nativeOwner = globalThis[className];
+  if (nativeOwner && typeof nativeOwner[methodName] === "function") return "";
+  return `No existe el método ${className}.${methodName}`;
+}
+
 // Ejecuta el método de otro diagrama. La sintaxis del bloque Funciones es
 // `Clase.metodo(argumentos)` o `resultado = Clase.metodo(argumentos)`.
 async function executeDiagramCall(code) {
-  const match = String(code).match(/^\s*(?:([A-Za-z_$][\w$]*)\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\((.*)\)\s*$/);
+  const match = parseDiagramCall(code);
   if (!match) throw Error("Usá Clase.metodo(argumentos) en el bloque Funciones");
   const [, resultName, className, methodName, argumentText] = match;
-  const target = diagrams.find((item) => item.method.className === className && item.method.name === methodName);
+  const target = diagrams.find(
+    (item) => String(item.method.className ?? "").trim() === className &&
+      String(item.method.name ?? "").trim() === methodName,
+  );
   // Conserva la posibilidad de invocar funciones JavaScript ya disponibles
   // (por ejemplo, Math.max) cuando no hay un diagrama con esa firma.
   if (!target) {
