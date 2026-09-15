@@ -74,6 +74,15 @@
         <button id="resetBtn">↺</button>
       </div>
     </header>
+    <aside id="chromeDragWarning" class="browser-warning" role="alert" hidden>
+      <span aria-hidden="true">⚠</span>
+      <span>
+        <strong>Aviso para Chrome:</strong> existe un error conocido al
+        arrastrar y soltar bloques. Si ocurre, usá el asa ⠿ del bloque o probá
+        otro navegador.
+      </span>
+      <button id="dismissChromeDragWarning" type="button" aria-label="Cerrar aviso">×</button>
+    </aside>
     <!-- Área central con los paneles laterales y el diagrama editable. -->
     <main id="main">
       <button id="diagramsTab" class="edge-tab left">Diagramas</button>
@@ -247,7 +256,7 @@
       </aside>
     </main>
     <footer>
-      <b>NS# · Creado por Luis Lanzafame · Software libre — Licencia MIT</b>
+      <b>NS# <span id="appVersion">v1.0.1</span> · Creado por Luis Lanzafame · Software libre — Licencia MIT</b>
     </footer>
     <!-- Ventana utilizada por cada bloque E para solicitar un valor. -->
     <dialog id="inputDialog">

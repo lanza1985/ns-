@@ -9,6 +9,9 @@
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
+// Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
+const APP_VERSION = "1.0.1";
+
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>
   String(value ?? "").replace(
@@ -66,6 +69,23 @@ const DRAG_TYPE = "application/x-ns-block";
 // Clave única utilizada para no mezclar este proyecto con otros sitios.
 const LOCAL_STORAGE_KEY = "nsplus-2-autosave";
 const make = (type, data = {}) => ({ id: nextId++, type, ...data });
+
+function isChrome() {
+  const userAgent = navigator.userAgent;
+  return /(?:Chrome|CriOS)\//.test(userAgent) &&
+    !/(?:Edg|EdgiOS|OPR|Opera|SamsungBrowser)\//.test(userAgent);
+}
+
+function setupChromeDragWarning() {
+  $("#appVersion").textContent = `v${APP_VERSION}`;
+  const warning = $("#chromeDragWarning");
+  warning.hidden = !isChrome();
+  $("#dismissChromeDragWarning").onclick = () => {
+    warning.hidden = true;
+  };
+}
+
+setupChromeDragWarning();
 
 // Proyecto de ejemplo que aparece al abrir la aplicación.
 const example = () => [

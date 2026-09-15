@@ -19,6 +19,13 @@ publicar esa carpeta en cualquier hosting estático.
 └── app.js                    Editor, guardado, ejecución y drag & drop
 ```
 
+## Versión
+
+La versión actual es **v1.0.1** y se muestra en el pie de la aplicación. En
+cada cambio, incrementá `APP_VERSION` en `app.js` y actualizá este número antes
+de publicar. Así las personas usuarias siempre pueden identificar la versión
+que están ejecutando.
+
 ## Cómo funciona
 
 - `blocks` contiene las instrucciones del diagrama.
