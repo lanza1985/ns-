@@ -369,6 +369,14 @@ body {
   display: block;
   color: #888;
 }
+.diagram-list {
+  display: grid;
+  gap: 10px;
+}
+.project-card.active {
+  border-left-color: var(--teal);
+  background: #f0fbfa;
+}
 .mini-diagram {
   font-size: 30px;
   color: var(--indigo);

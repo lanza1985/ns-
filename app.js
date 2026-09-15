@@ -10,7 +10,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 // Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
-const APP_VERSION = "1.0.1";
+const APP_VERSION = "1.1.0";
 
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>
@@ -60,6 +60,10 @@ let nextId = 1,
   pendingInput = null,
   autoSaveTimer = null,
   dragged = null;
+
+// Un proyecto puede contener tantos diagramas como necesite. `blocks`,
+// `declarations` y `method` siempre apuntan al diagrama que se está editando.
+let diagrams = [], activeDiagramId = null, nextDiagramId = 1;
 
 // Algunos navegadores no permiten leer tipos personalizados de DataTransfer
 // durante dragover. El estado en memoria es la fuente de verdad para los
@@ -116,6 +120,8 @@ declarations = [
   { kind: "declare", dataType: "Integer", name: "suma", expression: "0" },
 ];
 selectedId = blocks[0].id;
+diagrams = [{ id: "diagram-1", blocks, declarations, method }];
+activeDiagramId = "diagram-1";
 
 // ---------- DIBUJO DEL DIAGRAMA ----------
 const ed = (v, id, f) =>
@@ -168,10 +174,57 @@ function render() {
   diagram.innerHTML = declarationHTML() + list(blocks);
   diagram.style.display = "block";
   emptyState.hidden = true;
-  projectCardName.textContent = projectName.value || "Proyecto sin título";
+  renderDiagramList();
   main.classList.toggle("no-colors", !colorToggle.checked);
   bind();
   renderVars();
+}
+
+function diagramLabel(item) {
+  const className = item.method?.className?.trim() || "Sin clase";
+  const methodName = item.method?.name?.trim() || "sinMétodo";
+  return `${className}.${methodName}`;
+}
+
+function renderDiagramList() {
+  diagramList.innerHTML = diagrams
+    .map((item, index) => `<button class="project-card ${item.id === activeDiagramId ? "active" : ""}" data-diagram-id="${esc(item.id)}">
+      <span class="mini-diagram">▤</span><span><b>${esc(diagramLabel(item))}</b>
+      <small>${index === 0 ? "Diagrama principal" : "Función disponible"}</small></span></button>`)
+    .join("");
+  $$('[data-diagram-id]').forEach((button) => {
+    button.onclick = () => selectDiagram(button.dataset.diagramId);
+  });
+}
+
+function selectDiagram(id) {
+  const item = diagrams.find((diagramItem) => diagramItem.id === id);
+  if (!item || item.id === activeDiagramId) return;
+  stop();
+  activeDiagramId = item.id;
+  blocks = item.blocks;
+  declarations = item.declarations;
+  method = item.method;
+  selectedId = blocks[0]?.id || null;
+  render();
+}
+
+function createDiagram() {
+  const number = diagrams.length + 1;
+  const item = {
+    id: `diagram-${nextDiagramId++}`,
+    blocks: [],
+    declarations: [],
+    method: { className: `Clase${number}`, modifiers: "public", returnType: "void", name: `metodo${number}` },
+  };
+  diagrams.push(item);
+  activeDiagramId = item.id;
+  blocks = item.blocks;
+  declarations = item.declarations;
+  method = item.method;
+  selectedId = null;
+  render();
+  toast("Nuevo diagrama creado");
 }
 
 // Dibuja la firma del método y sus declaraciones, separadas de las instrucciones.
@@ -498,10 +551,14 @@ newBtn.onclick = () => {
     returnType: "void",
     name: "main",
   };
+  diagrams = [{ id: "diagram-1", blocks, declarations, method }];
+  activeDiagramId = "diagram-1";
+  nextDiagramId = 2;
   selectedId = null;
   projectName.value = "Proyecto sin título";
   render();
 };
+newDiagramBtn.onclick = createDiagram;
 loadExample.onclick = () => {
   stop();
   blocks = example();
@@ -509,6 +566,9 @@ loadExample.onclick = () => {
     { kind: "declare", dataType: "Integer", name: "suma", expression: "0" },
   ];
   selectedId = blocks[0].id;
+  diagrams = [{ id: "diagram-1", blocks, declarations, method }];
+  activeDiagramId = "diagram-1";
+  nextDiagramId = 2;
   projectName.value = "Promedio";
   diagramsPanel.classList.remove("open");
   render();
@@ -518,7 +578,7 @@ const inputHtml = (value) =>
   `<input class="input-for-statement" type="text" value="${esc(value)}" style="width: ${Math.max(3.5, String(value ?? "").length + 0.5)}ch;">`;
 
 // ---------- COMPATIBILIDAD CON ARCHIVOS NS PLUS ----------
-function nsPlusCode(source) {
+function nsPlusCode(source, sourceDeclarations = declarations, sourceMethod = method) {
   // NS Plus original guarda el diagrama como HTML. Aquí recreamos esa estructura.
   let serial = 0;
   const id = (name) => `xnsd-${name}-${serial++}`;
@@ -577,15 +637,15 @@ function nsPlusCode(source) {
         : "variable-declaration";
     return `<div id="${id(className)}" droppable="false" class="${className}"><div class="fixed-value-in-statement"></div><div class="type">${inputHtml(item.dataType)}</div><div class="name">${inputHtml(item.name)}</div></div>`;
   };
-  const parameters = declarations
+  const parameters = sourceDeclarations
     .filter((item) => item.kind === "parameter")
     .map(declarationToNsPlus)
     .join("");
-  const locals = declarations
+  const locals = sourceDeclarations
     .filter((item) => item.kind !== "parameter")
     .map(declarationToNsPlus)
     .join("");
-  const declaration = `<div id="${id("method-declaration")}" droppable="false" class="method-declaration"><div class="class-declaration"><div class="fixed-value-in-statement">class</div><div class="class-name">${inputHtml(method.className)}</div><div class="fixed-value-in-statement">:</div></div><div class="method-signature"><div class="method-modifiers">${inputHtml(method.modifiers)}</div><div class="method-type">${inputHtml(method.returnType)}</div><div class="method-name">${inputHtml(method.name)}</div><div class="fixed-value-in-statement">(</div><div class="method-parameters">${parameters}</div><div class="fixed-value-in-statement">)</div></div></div>`;
+  const declaration = `<div id="${id("method-declaration")}" droppable="false" class="method-declaration"><div class="class-declaration"><div class="fixed-value-in-statement">class</div><div class="class-name">${inputHtml(sourceMethod.className)}</div><div class="fixed-value-in-statement">:</div></div><div class="method-signature"><div class="method-modifiers">${inputHtml(sourceMethod.modifiers)}</div><div class="method-type">${inputHtml(sourceMethod.returnType)}</div><div class="method-name">${inputHtml(sourceMethod.name)}</div><div class="fixed-value-in-statement">(</div><div class="method-parameters">${parameters}</div><div class="fixed-value-in-statement">)</div></div></div>`;
   return `${declaration}<div class="local-variable-declaration">${locals}</div><div class="statements">${statements(source)}</div>`;
 }
 
@@ -604,14 +664,12 @@ function createNsPlusFile() {
   ];
   const project = {
     name,
-    diagrams: [
-      {
-        id: "NSPDiagram-1",
-        theClass: method.className,
-        name: method.name,
-        code: nsPlusCode(blocks),
-      },
-    ],
+    diagrams: diagrams.map((item, index) => ({
+      id: `NSPDiagram-${index + 1}`,
+      theClass: item.method.className,
+      name: item.method.name,
+      code: nsPlusCode(item.blocks, item.declarations, item.method),
+    })),
     usr: "Sin autor",
     uid: null,
     com: "Sin comisión",
@@ -619,10 +677,9 @@ function createNsPlusFile() {
     minutes: 0,
     meta: utf8ToBase64(JSON.stringify(audit)),
     editorState: {
-      version: 1,
-      blocks,
-      declarations,
-      method,
+      version: 2,
+      diagrams,
+      activeDiagramId,
     },
   };
   return { ver: 0.5, data: reverse(utf8ToBase64(JSON.stringify(project))) };
@@ -634,12 +691,25 @@ function createNsPlusFile() {
 function hasEditorState(value) {
   return (
     value &&
-    value.version === 1 &&
-    Array.isArray(value.blocks) &&
-    Array.isArray(value.declarations) &&
-    value.method &&
-    typeof value.method === "object"
+    ((value.version === 1 && Array.isArray(value.blocks) && Array.isArray(value.declarations) && value.method) ||
+      (value.version === 2 && Array.isArray(value.diagrams)))
   );
+}
+
+function useDiagrams(items, preferredId = null) {
+  diagrams = items.filter((item) => Array.isArray(item.blocks)).map((item, index) => ({
+    id: item.id || `diagram-${index + 1}`,
+    blocks: item.blocks,
+    declarations: item.declarations || [],
+    method: item.method || { className: "LaClase", modifiers: "public", returnType: "void", name: "main" },
+  }));
+  if (!diagrams.length) throw new Error("Estructura inválida");
+  nextDiagramId = Math.max(0, ...diagrams.map((item) => Number(String(item.id).match(/(\d+)$/)?.[1]) || 0)) + 1;
+  const active = diagrams.find((item) => item.id === preferredId) || diagrams[0];
+  activeDiagramId = active.id;
+  blocks = active.blocks;
+  declarations = active.declarations;
+  method = active.method;
 }
 
 function parseNsPlusCode(code) {
@@ -811,31 +881,19 @@ openFile.onchange = async (e) => {
     const d = JSON.parse(await e.target.files[0].text());
     if (d.ver === 0.5 && typeof d.data === "string") {
       const original = JSON.parse(base64ToUtf8(reverse(d.data)));
-      const diagramData = original.diagrams?.[0];
       if (hasEditorState(original.editorState)) {
-        // Es un archivo guardado por este editor: no reinterpretar el HTML.
-        // JSON.parse ya creó objetos nuevos, por lo que no se comparte estado.
-        blocks = original.editorState.blocks;
-        declarations = original.editorState.declarations;
-        method = original.editorState.method;
+        const state = original.editorState;
+        useDiagrams(state.version === 2 ? state.diagrams : [{ id: "diagram-1", blocks: state.blocks, declarations: state.declarations, method: state.method }], state.activeDiagramId);
       } else {
-        // Mantiene la importación de archivos creados por NS Plus u versiones
-        // anteriores de esta aplicación.
-        const parsedDiagram = parseNsPlusCode(diagramData?.code || "");
-        blocks = parsedDiagram.blocks;
-        declarations = parsedDiagram.declarations;
-        method = parsedDiagram.method;
+        useDiagrams((original.diagrams || []).map((item, index) => ({ id: `diagram-${index + 1}`, ...parseNsPlusCode(item.code || "") })));
       }
       projectName.value =
-        original.name || diagramData?.name || "Proyecto importado";
+        original.name || "Proyecto importado";
     } else {
-      blocks = d.blocks;
-      declarations = d.declarations || [];
-      method = d.method || method;
+      useDiagrams(d.diagrams || [{ id: "diagram-1", blocks: d.blocks, declarations: d.declarations || [], method: d.method || method }], d.activeDiagramId);
       projectName.value = d.name || "Proyecto importado";
     }
-    if (!Array.isArray(blocks)) throw new Error("Estructura inválida");
-    nextId = Math.max(0, ...all().map((b) => b.id)) + 1;
+    nextId = Math.max(0, ...diagrams.flatMap((item) => allBlocks(item.blocks).map((b) => b.id))) + 1;
     selectedId = blocks[0]?.id || null;
     render();
     toast("Proyecto abierto");
@@ -845,14 +903,15 @@ openFile.onchange = async (e) => {
 };
 exportBtn.onclick = () => window.print();
 // Devuelve una lista plana para calcular IDs y números de línea.
-const all = () => {
+const allBlocks = (source) => {
   const result = [];
-  walk(blocks, (block) => {
+  walk(source, (block) => {
     result.push(block);
     return false;
   });
   return result;
 };
+const all = () => allBlocks(blocks);
 
 // ---------- MOTOR DE EJECUCIÓN ----------
 function compile(source) {
@@ -965,6 +1024,79 @@ function assign(code) {
     throw Error("Se esperaba una asignación, por ejemplo: total = total + 1");
   runner.vars[m[1]] = expr(m[2]);
 }
+
+function evaluateWith(vars, source) {
+  const entries = Object.entries(vars).filter(
+    ([name]) => JS_IDENTIFIER.test(name) && !JS_RESERVED_WORDS.has(name),
+  );
+  return Function(...entries.map(([name]) => name), `"use strict";return (${String(source ?? "")})`)(...entries.map(([, value]) => value));
+}
+
+function splitArguments(source) {
+  if (!source.trim()) return [];
+  let depth = 0, quote = "", start = 0, result = [];
+  for (let index = 0; index < source.length; index++) {
+    const char = source[index];
+    if (quote) { if (char === quote && source[index - 1] !== "\\") quote = ""; continue; }
+    if (char === '"' || char === "'") quote = char;
+    else if (char === "(" || char === "[" || char === "{") depth++;
+    else if (char === ")" || char === "]" || char === "}") depth--;
+    else if (char === "," && depth === 0) { result.push(source.slice(start, index)); start = index + 1; }
+  }
+  result.push(source.slice(start));
+  return result;
+}
+
+// Ejecuta el método de otro diagrama. La sintaxis del bloque Funciones es
+// `Clase.metodo(argumentos)` o `resultado = Clase.metodo(argumentos)`.
+async function executeDiagramCall(code) {
+  const match = String(code).match(/^\s*(?:([A-Za-z_$][\w$]*)\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\((.*)\)\s*$/);
+  if (!match) throw Error("Usá Clase.metodo(argumentos) en el bloque Funciones");
+  const [, resultName, className, methodName, argumentText] = match;
+  const target = diagrams.find((item) => item.method.className === className && item.method.name === methodName);
+  // Conserva la posibilidad de invocar funciones JavaScript ya disponibles
+  // (por ejemplo, Math.max) cuando no hay un diagrama con esa firma.
+  if (!target) {
+    const nativeCall = `${className}.${methodName}(${argumentText})`;
+    const value = expr(nativeCall);
+    if (resultName) runner.vars[resultName] = value;
+    return;
+  }
+  if (target.id === activeDiagramId) throw Error("Un diagrama no puede llamarse a sí mismo");
+  const args = splitArguments(argumentText).map((argument) => expr(argument));
+  const value = await runDiagramFunction(target, args);
+  if (resultName) runner.vars[resultName] = value;
+}
+
+async function runDiagramFunction(target, args) {
+  const parameters = target.declarations.filter((item) => item.kind === "parameter");
+  if (args.length !== parameters.length)
+    throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s)`);
+  const vars = Object.fromEntries(parameters.map((item, index) => [item.name, args[index]]));
+  for (const item of target.declarations.filter((item) => item.kind !== "parameter"))
+    vars[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(vars, item.expression) : undefined;
+  const execute = async (items) => {
+    for (const item of items) {
+      if (item.type === "comment" || item.type === "variable") continue;
+      if (item.type === "instruction") { const assignment = item.code.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:=|←)\s*(.+)$/); if (!assignment) throw Error("La instrucción de una función debe ser una asignación"); vars[assignment[1]] = evaluateWith(vars, assignment[2]); }
+      else if (["declare", "constant"].includes(item.type)) vars[item.name] = evaluateWith(vars, item.expression);
+      else if (item.type === "output") out(evaluateWith(vars, item.expression));
+      else if (item.type === "input") { const value = await ask(item); if (value === Symbol.for("cancel")) throw Error("Entrada cancelada"); vars[item.name] = parse(value); }
+      else if (item.type === "call") {
+        const saved = runner.vars;
+        runner.vars = vars;
+        try { await executeDiagramCall(item.code); } finally { runner.vars = saved; }
+      }
+      else if (item.type === "return") return { returned: true, value: evaluateWith(vars, item.expression) };
+      else if (item.type === "if") { const result = await execute(evaluateWith(vars, item.condition) ? item.then : item.else); if (result?.returned) return result; }
+      else if (item.type === "while") { let guard = 0; while (evaluateWith(vars, item.condition)) { if (++guard > 10000) throw Error("Bucle de función demasiado largo"); const result = await execute(item.body); if (result?.returned) return result; } }
+      else if (item.type === "for") { const step = Number(evaluateWith(vars, item.step)); for (vars[item.variable] = evaluateWith(vars, item.start); step >= 0 ? vars[item.variable] <= evaluateWith(vars, item.end) : vars[item.variable] >= evaluateWith(vars, item.end); vars[item.variable] += step) { const result = await execute(item.body); if (result?.returned) return result; } }
+    }
+    return null;
+  };
+  const result = await execute(target.blocks);
+  return result?.value;
+}
 function out(v, cls = "") {
   const d = document.createElement("div");
   d.textContent = String(v);
@@ -1016,7 +1148,7 @@ async function advance() {
       out(expr(b.expression));
       runner.pc++;
     } else if (x.kind === "call") {
-      expr(b.code);
+      await executeDiagramCall(b.code);
       runner.pc++;
     } else if (x.kind === "return") {
       runner.returnValue = expr(b.expression);
@@ -1199,12 +1331,11 @@ function renderVars() {
 // Crea una copia simple del proyecto que JSON puede guardar sin problemas.
 function localProjectSnapshot() {
   return {
-    version: 1,
+    version: 2,
     savedAt: new Date().toISOString(),
     name: projectName.value,
-    blocks,
-    declarations,
-    method,
+    diagrams,
+    activeDiagramId,
     colors: colorToggle.checked,
     darkTheme: darkToggle.checked,
     interface: interfaceToggleEl.checked ? "modern" : "classic",
@@ -1252,23 +1383,21 @@ function scheduleAutoSave() {
 function restoreLocalProject(showMessage = true) {
   try {
     const savedProject = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
-    if (!savedProject?.blocks) {
+    if (!savedProject?.diagrams && !savedProject?.blocks) {
       if (showMessage) toast("No hay una copia local para restaurar");
       updateAutoSaveStatus();
       return false;
     }
 
     stop();
-    blocks = savedProject.blocks;
-    declarations = savedProject.declarations || [];
-    method = savedProject.method || method;
+    useDiagrams(savedProject.diagrams || [{ id: "diagram-1", blocks: savedProject.blocks, declarations: savedProject.declarations || [], method: savedProject.method || method }], savedProject.activeDiagramId);
     projectName.value = savedProject.name || "Proyecto sin título";
     colorToggle.checked = savedProject.colors !== false;
     darkToggle.checked = Boolean(savedProject.darkTheme);
     document.body.classList.toggle("dark-theme", darkToggle.checked);
     localStorage.setItem("ns-theme", darkToggle.checked ? "dark" : "light");
     applyInterface(savedProject.interface !== "classic");
-    nextId = Math.max(0, ...all().map((block) => Number(block.id) || 0)) + 1;
+    nextId = Math.max(0, ...diagrams.flatMap((item) => allBlocks(item.blocks).map((block) => Number(block.id) || 0))) + 1;
     selectedId = blocks[0]?.id || null;
     updateAutoSaveStatus(savedProject);
     if (showMessage) {

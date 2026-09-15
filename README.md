@@ -21,14 +21,21 @@ publicar esa carpeta en cualquier hosting estático.
 
 ## Versión
 
-La versión actual es **v1.0.1** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.0** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `app.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
 
 ## Cómo funciona
 
-- `blocks` contiene las instrucciones del diagrama.
+- Un proyecto puede contener muchos diagramas. El panel **Diagramas** permite
+  crear y cambiar entre ellos; cada uno conserva sus propias instrucciones,
+  declaraciones y firma de método.
+- Para usar un diagrama desde otro, definí su clase, método y parámetros en la
+  cabecera. Después agregá un bloque **Funciones / Métodos** y escribí, por
+  ejemplo, `resultado = Math.sum(2, 3)`. La función debe terminar con un bloque
+  `return` si necesitás usar su resultado.
+- `blocks` contiene las instrucciones del diagrama activo.
 - Los bloques `if`, `switch` y los bucles pueden contener otros bloques.
 - `declarations` guarda parámetros, constantes y variables del método.
 - `method` guarda clase, modificadores, tipo de retorno y nombre del método.
