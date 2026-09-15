@@ -10,7 +10,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 // Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
-const APP_VERSION = "1.1.2";
+const APP_VERSION = "1.1.4";
 
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>
@@ -1188,18 +1188,28 @@ function parseDiagramCall(code) {
   return String(code).match(/^\s*(?:([A-Za-z_$][\w$]*)\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\((.*)\)\s*$/);
 }
 
+function parameterCount(item) {
+  return item.declarations.filter((declaration) => declaration.kind === "parameter").length;
+}
+
 // Devuelve un mensaje si el bloque no puede invocar ni un diagrama del
 // proyecto ni un método JavaScript disponible. Se usa al dibujar para que el
 // error se vea antes de ejecutar el programa.
 function callValidationError(code) {
   const match = parseDiagramCall(code);
   if (!match) return "Usá Clase.metodo(argumentos) en el bloque Funciones";
-  const [, , className, methodName] = match;
+  const [, , className, methodName, argumentText] = match;
   const target = diagrams.find(
     (item) => String(item.method.className ?? "").trim() === className &&
       String(item.method.name ?? "").trim() === methodName,
   );
-  if (target) return "";
+  if (target) {
+    const expected = parameterCount(target);
+    const received = splitArguments(argumentText).length;
+    if (received !== expected)
+      return `${diagramLabel(target)} espera ${expected} argumento(s); recibiste ${received}`;
+    return "";
+  }
   const nativeOwner = globalThis[className];
   if (nativeOwner && typeof nativeOwner[methodName] === "function") return "";
   return `No existe el método ${className}.${methodName}`;
@@ -1232,7 +1242,7 @@ async function executeDiagramCall(code) {
 async function runDiagramFunction(target, args) {
   const parameters = target.declarations.filter((item) => item.kind === "parameter");
   if (args.length !== parameters.length)
-    throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s)`);
+    throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s); recibió ${args.length}`);
   const vars = Object.fromEntries(parameters.map((item, index) => [item.name, args[index]]));
   for (const item of target.declarations.filter((item) => item.kind !== "parameter"))
     vars[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(vars, item.expression) : undefined;

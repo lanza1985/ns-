@@ -55,6 +55,9 @@ body {
   box-shadow: 0 4px 14px #0003;
   font-size: 14px;
 }
+.browser-warning[hidden] {
+  display: none;
+}
 .browser-warning > span:first-child {
   font-size: 20px;
 }
