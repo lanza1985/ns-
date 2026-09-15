@@ -1273,12 +1273,36 @@ footer b::after {
 
 /* Drag & drop */
 .block-option[draggable="true"],
-.ns-block[draggable="true"] {
+.ns-block[draggable="true"],
+.drag-handle[draggable="true"] {
   cursor: grab;
 }
 .block-option.dragging,
 .ns-block.dragging {
   opacity: 0.35;
+}
+.drag-handle {
+  position: absolute;
+  z-index: 21;
+  top: 6px;
+  right: 7px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 4px;
+  color: #52616f;
+  font-size: 19px;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: element;
+}
+.drag-handle:hover {
+  background: #ffffffa8;
+}
+.drag-handle:active {
+  cursor: grabbing;
 }
 .ns-block.drop-before::before,
 .ns-block.drop-after::after {

@@ -58,6 +58,11 @@ let nextId = 1,
   autoSaveTimer = null,
   dragged = null;
 
+// Algunos navegadores no permiten leer tipos personalizados de DataTransfer
+// durante dragover. El estado en memoria es la fuente de verdad para los
+// arrastres internos; los dos formatos sirven de respaldo al soltar.
+const DRAG_TYPE = "application/x-ns-block";
+
 // Clave única utilizada para no mezclar este proyecto con otros sitios.
 const LOCAL_STORAGE_KEY = "nsplus-2-autosave";
 const make = (type, data = {}) => ({ id: nextId++, type, ...data });
@@ -1260,6 +1265,7 @@ render();
 
 // ---------- DRAG & DROP ----------
 function includesBlock(block, id) {
+  if (!block) return false;
   let yes = block.id === id;
   for (const key of ["then", "else", "body", "default"])
     if (Array.isArray(block[key]))
@@ -1270,11 +1276,44 @@ function includesBlock(block, id) {
   return yes;
 }
 function dragPayload(event) {
+  if (dragged) return dragged;
   try {
-    return JSON.parse(event.dataTransfer.getData("application/x-ns-block"));
+    const data =
+      event.dataTransfer.getData(DRAG_TYPE) ||
+      event.dataTransfer.getData("text/plain");
+    return data ? JSON.parse(data) : null;
   } catch {
-    return dragged;
+    return null;
   }
+}
+function beginDrag(event, payload, effectAllowed) {
+  dragged = payload;
+  const data = JSON.stringify(payload);
+  event.dataTransfer.effectAllowed = effectAllowed;
+  // text/plain is needed as a compatibility format by Chromium-based browsers.
+  event.dataTransfer.setData(DRAG_TYPE, data);
+  event.dataTransfer.setData("text/plain", data);
+}
+function allowDrop(event, effect) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = effect;
+}
+function leftDropTarget(event, element) {
+  return !element.contains(event.relatedTarget);
+}
+function canDropInContainer(payload, container) {
+  if (!payload) return false;
+  if (payload.origin !== "diagram") return payload.origin === "palette";
+  const [parentId] = container.dataset.container.split(":");
+  // A block cannot be inserted in itself or in one of its descendants.
+  return !includesBlock(find(payload.id), Number(parentId));
+}
+function canDropByBlock(payload, targetId) {
+  return (
+    !!payload &&
+    (payload.origin !== "diagram" ||
+      (payload.id !== targetId && !includesBlock(find(payload.id), targetId)))
+  );
 }
 function removeDragged(payload) {
   if (payload?.origin !== "diagram") return null;
@@ -1298,9 +1337,7 @@ function setupDragDrop() {
   $$(".block-option").forEach((el) => {
     el.draggable = true;
     el.ondragstart = (e) => {
-      dragged = { origin: "palette", type: el.dataset.add };
-      e.dataTransfer.effectAllowed = "copy";
-      e.dataTransfer.setData("application/x-ns-block", JSON.stringify(dragged));
+      beginDrag(e, { origin: "palette", type: el.dataset.add }, "copy");
       el.classList.add("dragging");
     };
     el.ondragend = () => {
@@ -1309,8 +1346,29 @@ function setupDragDrop() {
     };
   });
   $$(".ns-block").forEach((el) => {
+    // Chrome is inconsistent when a draggable ancestor contains editable
+    // text. A dedicated handle avoids competing with contenteditable and
+    // also makes it clear where a block can be picked up.
     el.draggable = true;
     el.title = "Arrastrá para mover";
+    const handle = document.createElement("span");
+    handle.className = "drag-handle";
+    handle.draggable = true;
+    handle.setAttribute("role", "img");
+    handle.setAttribute("aria-label", "Arrastrar bloque");
+    handle.title = "Arrastrá para mover";
+    handle.textContent = "⠿";
+    el.prepend(handle);
+    handle.ondragstart = (e) => {
+      e.stopPropagation();
+      beginDrag(e, { origin: "diagram", id: Number(el.dataset.id) }, "move");
+      setTimeout(() => el.classList.add("dragging"), 0);
+    };
+    handle.ondragend = (e) => {
+      e.stopPropagation();
+      el.classList.remove("dragging");
+      finishDrop();
+    };
     el.ondragstart = (e) => {
       if (e.target.closest(".editable") || e.target.closest("[data-switch-action]")) {
         e.preventDefault();
@@ -1320,9 +1378,7 @@ function setupDragDrop() {
       // la propagación, el padre reemplaza este payload y se mueve/elimina el
       // contenedor entero en lugar del bloque que se tomó.
       e.stopPropagation();
-      dragged = { origin: "diagram", id: Number(el.dataset.id) };
-      e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("application/x-ns-block", JSON.stringify(dragged));
+      beginDrag(e, { origin: "diagram", id: Number(el.dataset.id) }, "move");
       setTimeout(() => el.classList.add("dragging"), 0);
     };
     el.ondragend = () => {
@@ -1330,26 +1386,27 @@ function setupDragDrop() {
       finishDrop();
     };
     el.ondragover = (e) => {
-      e.preventDefault();
+      const payload = dragPayload(e);
+      if (!canDropByBlock(payload, Number(el.dataset.id))) return;
+      allowDrop(e, dragged?.origin === "palette" ? "copy" : "move");
       e.stopPropagation();
       const top =
-        e.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2;
+        e.clientY < el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2;
       el.classList.toggle("drop-before", top);
       el.classList.toggle("drop-after", !top);
     };
-    el.ondragleave = () => el.classList.remove("drop-before", "drop-after");
+    el.ondragleave = (e) => {
+      if (leftDropTarget(e, el))
+        el.classList.remove("drop-before", "drop-after");
+    };
     el.ondrop = (e) => {
       e.preventDefault();
       e.stopPropagation();
       const p = dragPayload(e),
         targetId = Number(el.dataset.id);
-      if (
-        p?.origin === "diagram" &&
-        (p.id === targetId || includesBlock(find(p.id), targetId))
-      )
-        return finishDrop();
+      if (!canDropByBlock(p, targetId)) return finishDrop();
       const before =
-          e.clientY < el.getBoundingClientRect().top + el.offsetHeight / 2,
+          e.clientY < el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2,
         b = droppedBlock(p),
         loc = locate(targetId);
       if (!b || !loc) return finishDrop();
@@ -1361,21 +1418,20 @@ function setupDragDrop() {
   });
   $$("[data-container]").forEach((el) => {
     el.ondragover = (e) => {
-      e.preventDefault();
+      const payload = dragPayload(e);
+      if (!canDropInContainer(payload, el)) return;
+      allowDrop(e, dragged?.origin === "palette" ? "copy" : "move");
       e.stopPropagation();
       el.classList.add("drop-inside");
     };
-    el.ondragleave = () => el.classList.remove("drop-inside");
+    el.ondragleave = (e) => {
+      if (leftDropTarget(e, el)) el.classList.remove("drop-inside");
+    };
     el.ondrop = (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const p = dragPayload(e),
-        [parentId] = el.dataset.container.split(":");
-      if (
-        p?.origin === "diagram" &&
-        includesBlock(find(p.id), Number(parentId))
-      )
-        return finishDrop();
+      const p = dragPayload(e);
+      if (!canDropInContainer(p, el)) return finishDrop();
       const target = targetListFor(el.dataset.container),
         b = droppedBlock(p);
       if (!target || !b) return finishDrop();
@@ -1386,8 +1442,8 @@ function setupDragDrop() {
     };
   });
   diagram.ondragover = (e) => {
-    if (e.target === diagram) {
-      e.preventDefault();
+    if (e.target === diagram && dragPayload(e)) {
+      allowDrop(e, dragged?.origin === "palette" ? "copy" : "move");
       diagram.classList.add("drop-inside");
     }
   };
@@ -1411,12 +1467,11 @@ function setupDragDrop() {
   // arrastrar desde la paleta hacia él nunca elimina ni crea un bloque.
   trashDropZone.ondragover = (e) => {
     if (dragPayload(e)?.origin !== "diagram") return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
+    allowDrop(e, "move");
     trashDropZone.classList.add("drag-over");
   };
   trashDropZone.ondragleave = (e) => {
-    if (!trashDropZone.contains(e.relatedTarget))
+    if (leftDropTarget(e, trashDropZone))
       trashDropZone.classList.remove("drag-over");
   };
   trashDropZone.ondrop = (e) => {
