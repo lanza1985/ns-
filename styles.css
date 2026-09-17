@@ -368,6 +368,52 @@ body {
   padding: 12px;
   cursor: pointer;
 }
+.class-card {
+  border: 1px solid #d8dce5;
+  box-shadow: 0 2px 7px #0002;
+  background: #fff;
+}
+.class-card-header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  color: var(--indigo);
+  border-bottom: 1px solid #d8dce5;
+}
+.class-card-header .mini-diagram {
+  font-size: 20px;
+}
+.class-method-list {
+  display: grid;
+  gap: 1px;
+}
+.project-card {
+  padding: 0;
+}
+.project-card-select {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.remove-diagram {
+  align-self: stretch;
+  width: 38px;
+  border: 0;
+  border-left: 1px solid #e3e5ea;
+  background: transparent;
+  color: #b3261e;
+  font-size: 21px;
+  cursor: pointer;
+}
+.remove-diagram:hover {
+  background: #ffebee;
+}
 .project-card small {
   display: block;
   color: #888;
@@ -967,10 +1013,18 @@ dialog button {
 .dark-theme .block-option,
 .dark-theme .acc-head,
 .dark-theme .project-card,
+.dark-theme .class-card,
 .dark-theme .variable {
   background: #222934;
   color: #edf0f5;
   border-color: #4f5967;
+}
+.dark-theme .class-card-header,
+.dark-theme .remove-diagram {
+  border-color: #4f5967;
+}
+.dark-theme .remove-diagram:hover {
+  background: #4b252a;
 }
 .dark-theme .dropdown button:hover,
 .dark-theme .block-option:hover {

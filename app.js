@@ -10,7 +10,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 // Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
-const APP_VERSION = "1.1.4";
+const APP_VERSION = "1.1.7";
 
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>
@@ -195,13 +195,31 @@ function diagramLabel(item) {
 }
 
 function renderDiagramList() {
-  diagramList.innerHTML = diagrams
-    .map((item, index) => `<button class="project-card ${item.id === activeDiagramId ? "active" : ""}" data-diagram-id="${esc(item.id)}">
-      <span class="mini-diagram">▤</span><span><b>${esc(diagramLabel(item))}</b>
-      <small>${index === 0 ? "Diagrama principal" : "Función disponible"}</small></span></button>`)
+  const classes = new Map();
+  diagrams.forEach((item) => {
+    const className = item.method?.className?.trim() || "Sin clase";
+    if (!classes.has(className)) classes.set(className, []);
+    classes.get(className).push(item);
+  });
+  diagramList.innerHTML = [...classes]
+    .map(([className, methods]) => `<section class="class-card">
+      <div class="class-card-header"><span class="mini-diagram">▤</span><b>${esc(className)}</b></div>
+      <div class="class-method-list">${methods
+        .map((item, index) => `<div class="project-card ${item.id === activeDiagramId ? "active" : ""}">
+          <button class="project-card-select" data-diagram-id="${esc(item.id)}"><span><b>${esc(item.method?.name?.trim() || "sinMétodo")}</b><small>${index === 0 ? "Método" : "Método de la clase"}</small></span></button>
+          <button class="remove-diagram" type="button" data-remove-diagram="${esc(item.id)}" title="Eliminar diagrama" aria-label="Eliminar diagrama ${esc(item.method?.name?.trim() || "sinMétodo")}">×</button>
+        </div>`)
+        .join("")}</div>
+    </section>`)
     .join("");
   $$('[data-diagram-id]').forEach((button) => {
     button.onclick = () => selectDiagram(button.dataset.diagramId);
+  });
+  $$('[data-remove-diagram]').forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      removeDiagram(button.dataset.removeDiagram);
+    };
   });
 }
 
@@ -217,13 +235,18 @@ function selectDiagram(id) {
   render();
 }
 
-function createDiagram() {
+function createDiagram(className = null) {
   const number = diagrams.length + 1;
   const item = {
     id: `diagram-${nextDiagramId++}`,
     blocks: [],
     declarations: [],
-    method: { className: `Clase${number}`, modifiers: "public", returnType: "void", name: `metodo${number}` },
+    method: {
+      className: className ?? `Clase${number}`,
+      modifiers: "public",
+      returnType: "void",
+      name: `metodo${number}`,
+    },
   };
   diagrams.push(item);
   activeDiagramId = item.id;
@@ -232,7 +255,28 @@ function createDiagram() {
   method = item.method;
   selectedId = null;
   render();
-  toast("Nuevo diagrama creado");
+  toast(className ? "Nuevo método creado" : "Nuevo diagrama creado");
+}
+
+function removeDiagram(id) {
+  if (diagrams.length === 1) {
+    toast("El proyecto debe conservar al menos un diagrama");
+    return;
+  }
+  const index = diagrams.findIndex((item) => item.id === id);
+  if (index < 0) return;
+  if (!confirm(`¿Eliminar el diagrama ${diagramLabel(diagrams[index])}?`)) return;
+  const [removed] = diagrams.splice(index, 1);
+  if (removed.id === activeDiagramId) {
+    const replacement = diagrams[Math.min(index, diagrams.length - 1)];
+    activeDiagramId = replacement.id;
+    blocks = replacement.blocks;
+    declarations = replacement.declarations;
+    method = replacement.method;
+    selectedId = blocks[0]?.id || null;
+  }
+  render();
+  toast("Diagrama eliminado");
 }
 
 // Dibuja la firma del método y sus declaraciones, separadas de las instrucciones.
@@ -330,7 +374,14 @@ function bind() {
     el.onblur = () => {
       window.setTimeout(hideCallAutocomplete, 0);
       if (el.dataset.method) {
-        method[el.dataset.method] = el.textContent.trim();
+        const field = el.dataset.method;
+        const value = el.textContent.trim();
+        if (field === "className") {
+          const previousClassName = method.className;
+          diagrams
+            .filter((item) => item.method.className === previousClassName)
+            .forEach((item) => (item.method.className = value));
+        } else method[field] = value;
         render();
         return;
       }
@@ -453,11 +504,16 @@ function targetList() {
 function add(t) {
   // Las declaraciones viven arriba del método; los demás bloques viven en el flujo.
   const declarationKinds = {
+    declMethod: "method",
     declParameter: "parameter",
     declConstant: "constant",
     declVariable: "variable",
     declInitialized: "declare",
   };
+  if (declarationKinds[t] === "method") {
+    createDiagram(method.className.trim() || "LaClase");
+    return;
+  }
   if (declarationKinds[t]) {
     const kind = declarationKinds[t];
     declarations.push({
@@ -485,7 +541,6 @@ $$("[data-add]").forEach(
     (x.onclick = (e) => {
       e.stopPropagation();
       add(x.dataset.add);
-      typeDropdown.hidden = true;
     }),
 );
 $$(".acc-head").forEach(
@@ -500,6 +555,7 @@ typeBtn.onclick = (e) => {
   e.stopPropagation();
   typeDropdown.hidden = !typeDropdown.hidden;
 };
+typeDropdown.onclick = (e) => e.stopPropagation();
 storageBtn.onclick = (e) => {
   e.stopPropagation();
   storageDropdown.hidden = !storageDropdown.hidden;

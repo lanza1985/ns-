@@ -21,7 +21,7 @@ publicar esa carpeta en cualquier hosting estático.
 
 ## Versión
 
-La versión actual es **v1.1.4** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.7** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `app.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -29,8 +29,9 @@ que están ejecutando.
 ## Cómo funciona
 
 - Un proyecto puede contener muchos diagramas. El panel **Diagramas** permite
-  crear y cambiar entre ellos; cada uno conserva sus propias instrucciones,
-  declaraciones y firma de método.
+  crear y cambiar entre ellos. Los métodos se agrupan bajo su clase; al agregar
+  un método desde Declaraciones se incorpora a la clase actual. Cada uno
+  conserva sus propias instrucciones, declaraciones y firma de método.
 - Para usar un diagrama desde otro, definí su clase, método y parámetros en la
   cabecera. Después agregá un bloque **Funciones / Métodos** y escribí, por
   ejemplo, `resultado = Math.sum(2, 3)`. La función debe terminar con un bloque
