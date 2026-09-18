@@ -8,21 +8,37 @@ Creado por **Luis Lanzafame** y distribuido como software libre bajo la
 
 ## Cómo abrirlo
 
-Entrá en la carpeta `dist` y abrí `index.html` con doble clic. También podés
-publicar esa carpeta en cualquier hosting estático.
+Abrí `index.html` desde la raíz del proyecto con doble clic. Funciona mediante
+`file://`: no necesita dependencias, instalación, compilación ni un servidor.
+Mantené todos los archivos JavaScript junto a `index.html`, porque este los
+carga directamente. También se puede publicar el contenido de esta carpeta en
+cualquier hosting estático.
+
+La aplicación usa scripts clásicos con `defer`, no módulos ES (`import` /
+`export`). Esto permite abrirla localmente sin los bloqueos CORS que algunos
+navegadores aplican a los módulos cargados desde `file://`.
 
 ## Estructura
 
 ```text
-├── index.html                 Interfaz y controles
-├── styles.css                Diseño, colores y tema oscuro
-└── app.js                    Editor, guardado, ejecución y drag & drop
+├── index.html                 Interfaz y orden de carga de los scripts
+├── styles.css                 Diseño, colores y tema oscuro
+├── core.js                    Estado compartido, utilidades y versión
+├── editor.js                  Modelo, renderizado y controles del editor
+├── nsplus-format.js           Importación y exportación de archivos .nsplus
+├── runtime.js                 Compilación, intérprete y panel de ejecución
+├── drag-drop.js               Arrastrar, soltar, reubicar y eliminar bloques
+└── persistence.js             Autoguardado local y arranque de la aplicación
 ```
+
+El orden de los `<script defer>` en `index.html` es parte de la arquitectura:
+los archivos posteriores usan las funciones y el estado declarados por los
+anteriores. Si se agrega un archivo, incluilo allí en el punto apropiado.
 
 ## Versión
 
 La versión actual es **v1.1.7** y se muestra en el pie de la aplicación. En
-cada cambio, incrementá `APP_VERSION` en `app.js` y actualizá este número antes
+cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
 
@@ -45,6 +61,9 @@ que están ejecutando.
 - `advance()` ejecuta un paso y controla entradas, salidas, saltos y bucles.
 - El guardado `.nsplus` conserva el formato de NS Plus original.
 - Cada modificación crea una copia automática en `localStorage`.
+- El botón **Reportar un bug** abre el cliente de correo predeterminado con el
+  destinatario y asunto ya completados. Para usarlo, el navegador debe tener
+  configurado un cliente o servicio de correo para enlaces `mailto:`.
 
 ## Guardado local
 
@@ -68,11 +87,11 @@ la variable indicada. Para pedir una edad, por ejemplo:
 ## Agregar un bloque nuevo
 
 1. Agregá su botón en `index.html` con `data-add="nombre"`.
-2. Definí sus valores iniciales en `fresh()` dentro de `app.js`.
-3. Dibujalo en `blockHTML()`.
-4. Agregá su comportamiento en `compile()` y `advance()`.
+2. Definí sus valores iniciales en `fresh()` dentro de `editor.js`.
+3. Dibujalo en `blockHTML()` dentro de `editor.js`.
+4. Agregá su comportamiento en `compile()` y `advance()` dentro de `runtime.js`.
 5. Si debe viajar a NS Plus original, agregá su conversión en
-   `blockToNsPlus()` y `parseBlock()`.
+   `blockToNsPlus()` y `parseBlock()` dentro de `nsplus-format.js`.
 
 Los comentarios del código explican cada parte importante y los nombres de las
 funciones describen su responsabilidad.

@@ -74,16 +74,11 @@
         <button id="pauseBtn" disabled>Ⅱ</button>
         <button id="resetBtn">↺</button>
       </div>
+      <a
+        class="report-bug"
+        href="mailto:luis.alberto.lanzafame@gmail.com?subject=Not%20a%20bug%20found"
+        >Reportar un bug</a>
     </header>
-    <aside id="chromeDragWarning" class="browser-warning" role="alert" hidden>
-      <span aria-hidden="true">⚠</span>
-      <span>
-        <strong>Aviso para Chrome:</strong> existe un error conocido al
-        arrastrar y soltar bloques. Si ocurre, usá el asa ⠿ del bloque o probá
-        otro navegador.
-      </span>
-      <button id="dismissChromeDragWarning" type="button" aria-label="Cerrar aviso">×</button>
-    </aside>
     <!-- Área central con los paneles laterales y el diagrama editable. -->
     <main id="main">
       <button id="diagramsTab" class="edge-tab left">Diagramas</button>
@@ -269,7 +264,12 @@
       </form>
     </dialog>
     <div id="toast" class="toast"></div>
-    <!-- JavaScript clásico: funciona incluso al abrir este HTML con doble clic. -->
-    <script src="app.js"></script>
+    <!-- Scripts clásicos: funcionan incluso al abrir este HTML con doble clic. -->
+    <script defer src="core.js"></script>
+    <script defer src="editor.js"></script>
+    <script defer src="nsplus-format.js"></script>
+    <script defer src="runtime.js"></script>
+    <script defer src="drag-drop.js"></script>
+    <script defer src="persistence.js"></script>
   </body>
 </html>
