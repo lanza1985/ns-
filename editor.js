@@ -90,15 +90,15 @@ function render() {
 }
 
 function diagramLabel(item) {
-  const className = item.method?.className?.trim() || "Sin clase";
-  const methodName = item.method?.name?.trim() || "sinMétodo";
+  const className = String(item.method?.className ?? "").trim() || "Sin clase";
+  const methodName = String(item.method?.name ?? "").trim() || "sinMétodo";
   return `${className}.${methodName}`;
 }
 
 function renderDiagramList() {
   const classes = new Map();
   diagrams.forEach((item) => {
-    const className = item.method?.className?.trim() || "Sin clase";
+    const className = String(item.method?.className ?? "").trim() || "Sin clase";
     if (!classes.has(className)) classes.set(className, []);
     classes.get(className).push(item);
   });
@@ -107,8 +107,8 @@ function renderDiagramList() {
       <div class="class-card-header"><span class="mini-diagram">▤</span><b>${esc(className)}</b></div>
       <div class="class-method-list">${methods
         .map((item, index) => `<div class="project-card ${item.id === activeDiagramId ? "active" : ""}">
-          <button class="project-card-select" data-diagram-id="${esc(item.id)}"><span><b>${esc(item.method?.name?.trim() || "sinMétodo")}</b><small>${index === 0 ? "Método" : "Método de la clase"}</small></span></button>
-          <button class="remove-diagram" type="button" data-remove-diagram="${esc(item.id)}" title="Eliminar diagrama" aria-label="Eliminar diagrama ${esc(item.method?.name?.trim() || "sinMétodo")}">×</button>
+          <button class="project-card-select" data-diagram-id="${esc(item.id)}"><span><b>${esc(String(item.method?.name ?? "").trim() || "sinMétodo")}</b><small>${index === 0 ? "Método" : "Método de la clase"}</small></span></button>
+          <button class="remove-diagram" type="button" data-remove-diagram="${esc(item.id)}" title="Eliminar diagrama" aria-label="Eliminar diagrama ${esc(String(item.method?.name ?? "").trim() || "sinMétodo")}">×</button>
         </div>`)
         .join("")}</div>
     </section>`)
@@ -138,12 +138,14 @@ function selectDiagram(id) {
 
 function createDiagram(className = null) {
   const number = diagrams.length + 1;
+  const existingClassName =
+    typeof className === "string" ? className.trim() : "";
   const item = {
     id: `diagram-${nextDiagramId++}`,
     blocks: [],
     declarations: [],
     method: {
-      className: className ?? `Clase${number}`,
+      className: existingClassName || `Clase${number}`,
       modifiers: "public",
       returnType: "void",
       name: `metodo${number}`,
@@ -156,7 +158,7 @@ function createDiagram(className = null) {
   method = item.method;
   selectedId = null;
   render();
-  toast(className ? "Nuevo método creado" : "Nuevo diagrama creado");
+  toast(existingClassName ? "Nuevo método creado" : "Nuevo diagrama creado");
 }
 
 function removeDiagram(id) {
@@ -547,7 +549,9 @@ newBtn.onclick = () => {
   projectName.value = "Proyecto sin título";
   render();
 };
-newDiagramBtn.onclick = createDiagram;
+// No pasar el evento de click como nombre de clase: createDiagram() usa su
+// argumento opcional para crear un método dentro de una clase existente.
+newDiagramBtn.onclick = () => createDiagram();
 loadExample.onclick = () => {
   stop();
   blocks = example();
