@@ -19,6 +19,7 @@ function localProjectSnapshot() {
     name: projectName.value,
     diagrams,
     activeDiagramId,
+    meta: projectMeta,
     colors: colorToggle.checked,
     darkTheme: darkToggle.checked,
     interface: interfaceToggleEl.checked ? "modern" : "classic",
@@ -75,6 +76,7 @@ function restoreLocalProject(showMessage = true) {
     stop();
     useDiagrams(savedProject.diagrams || [{ id: "diagram-1", blocks: savedProject.blocks, declarations: savedProject.declarations || [], method: savedProject.method || method }], savedProject.activeDiagramId);
     projectName.value = savedProject.name || "Proyecto sin título";
+    projectMeta = readNsPlusMeta(savedProject.meta);
     colorToggle.checked = savedProject.colors !== false;
     darkToggle.checked = Boolean(savedProject.darkTheme);
     document.body.classList.toggle("dark-theme", darkToggle.checked);

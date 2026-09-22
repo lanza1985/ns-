@@ -79,14 +79,10 @@ function createNsPlusFile() {
   // Además del HTML que entiende NS Plus, conservamos nuestro árbol original.
   // Volver a deducirlo desde HTML hace que detalles de diagramas anidados se
   // puedan perder (y que el resultado dependa del parser del navegador).
-  const now = new Date().toISOString();
+  const now = new Date();
   const name = projectName.value || "Proyecto sin título";
-  const audit = [
-    {
-      d: now,
-      i: { usr: "Sin autor", com: "Sin comisión", start: now, minutes: 0 },
-    },
-  ];
+  const metadata = createSaveMetadata(now);
+  const audit = [...projectMeta, { d: metadata.date, i: createSessionMetadata(now) }];
   const project = {
     name,
     diagrams: diagrams.map((item, index) => ({
@@ -95,11 +91,7 @@ function createNsPlusFile() {
       name: item.method.name,
       code: nsPlusCode(item.blocks, item.declarations, item.method),
     })),
-    usr: "Sin autor",
-    uid: null,
-    com: "Sin comisión",
-    date: now,
-    minutes: 0,
+    ...metadata,
     meta: utf8ToBase64(JSON.stringify(audit)),
     editorState: {
       version: 2,
@@ -107,7 +99,17 @@ function createNsPlusFile() {
       activeDiagramId,
     },
   };
+  projectMeta = audit;
   return { ver: 0.5, data: reverse(utf8ToBase64(JSON.stringify(project))) };
+}
+
+function readNsPlusMeta(value) {
+  try {
+    const decoded = typeof value === "string" ? JSON.parse(base64ToUtf8(value)) : value;
+    return Array.isArray(decoded) ? decoded : [];
+  } catch {
+    return [];
+  }
 }
 
 // Los archivos de otros editores no incluyen editorState: en ese caso se usa
@@ -296,31 +298,35 @@ saveBtn.onclick = () => {
     }),
     a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = (projectName.value || "diagrama") + ".nsplus";
+  a.download = nsPlusFilename(projectName.value);
   a.click();
   URL.revokeObjectURL(a.href);
   toast("Proyecto guardado");
 };
+function loadProjectFile(d) {
+  if (d.ver === 0.5 && typeof d.data === "string") {
+    const original = JSON.parse(base64ToUtf8(reverse(d.data)));
+    if (hasEditorState(original.editorState)) {
+      const state = original.editorState;
+      useDiagrams(state.version === 2 ? state.diagrams : [{ id: "diagram-1", blocks: state.blocks, declarations: state.declarations, method: state.method }], state.activeDiagramId);
+    } else {
+      useDiagrams((original.diagrams || []).map((item, index) => ({ id: `diagram-${index + 1}`, ...parseNsPlusCode(item.code || "") })));
+    }
+    projectName.value = original.name || "Proyecto importado";
+    projectMeta = readNsPlusMeta(original.meta);
+  } else {
+    useDiagrams(d.diagrams || [{ id: "diagram-1", blocks: d.blocks, declarations: d.declarations || [], method: d.method || method }], d.activeDiagramId);
+    projectName.value = d.name || "Proyecto importado";
+    projectMeta = readNsPlusMeta(d.meta);
+  }
+  nextId = Math.max(0, ...diagrams.flatMap((item) => allBlocks(item.blocks).map((b) => b.id))) + 1;
+  selectedId = blocks[0]?.id || null;
+  render();
+}
+
 openFile.onchange = async (e) => {
   try {
-    const d = JSON.parse(await e.target.files[0].text());
-    if (d.ver === 0.5 && typeof d.data === "string") {
-      const original = JSON.parse(base64ToUtf8(reverse(d.data)));
-      if (hasEditorState(original.editorState)) {
-        const state = original.editorState;
-        useDiagrams(state.version === 2 ? state.diagrams : [{ id: "diagram-1", blocks: state.blocks, declarations: state.declarations, method: state.method }], state.activeDiagramId);
-      } else {
-        useDiagrams((original.diagrams || []).map((item, index) => ({ id: `diagram-${index + 1}`, ...parseNsPlusCode(item.code || "") })));
-      }
-      projectName.value =
-        original.name || "Proyecto importado";
-    } else {
-      useDiagrams(d.diagrams || [{ id: "diagram-1", blocks: d.blocks, declarations: d.declarations || [], method: d.method || method }], d.activeDiagramId);
-      projectName.value = d.name || "Proyecto importado";
-    }
-    nextId = Math.max(0, ...diagrams.flatMap((item) => allBlocks(item.blocks).map((b) => b.id))) + 1;
-    selectedId = blocks[0]?.id || null;
-    render();
+    loadProjectFile(JSON.parse(await e.target.files[0].text()));
     toast("Proyecto abierto");
   } catch {
     toast("Archivo no válido");

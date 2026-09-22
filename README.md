@@ -24,6 +24,7 @@ navegadores aplican a los módulos cargados desde `file://`.
 ├── index.html                 Interfaz y orden de carga de los scripts
 ├── styles.css                 Diseño, colores y tema oscuro
 ├── core.js                    Estado compartido, utilidades y versión
+├── exam-context.js            Parámetros de URL y metadata de sesión/examen
 ├── editor.js                  Modelo, renderizado y controles del editor
 ├── nsplus-format.js           Importación y exportación de archivos .nsplus
 ├── runtime.js                 Compilación, intérprete y panel de ejecución
@@ -37,7 +38,7 @@ anteriores. Si se agrega un archivo, incluilo allí en el punto apropiado.
 
 ## Versión
 
-La versión actual es **v1.1.10** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.11** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.

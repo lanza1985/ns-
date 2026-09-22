@@ -12,7 +12,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 // Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
-const APP_VERSION = "1.1.10";
+const APP_VERSION = "1.1.11";
 
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>
@@ -66,6 +66,8 @@ let nextId = 1,
 // Un proyecto puede contener tantos diagramas como necesite. `blocks`,
 // `declarations` y `method` siempre apuntan al diagrama que se está editando.
 let diagrams = [], activeDiagramId = null, nextDiagramId = 1;
+// Historial NSPlus decodificado; se conserva al importar y restaurar copias.
+let projectMeta = [];
 
 // Menú contextual para completar llamadas a diagramas del proyecto.
 const callAutocomplete = document.createElement("div");
