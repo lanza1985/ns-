@@ -12,7 +12,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 // Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
-const APP_VERSION = "1.1.11";
+const APP_VERSION = "1.1.12";
 
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>

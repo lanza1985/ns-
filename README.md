@@ -38,7 +38,7 @@ anteriores. Si se agrega un archivo, incluilo allí en el punto apropiado.
 
 ## Versión
 
-La versión actual es **v1.1.11** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.12** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
