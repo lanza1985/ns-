@@ -283,7 +283,7 @@ function callValidationError(code) {
 
 // Ejecuta el método de otro diagrama. La sintaxis del bloque Funciones es
 // `Clase.metodo(argumentos)` o `resultado = Clase.metodo(argumentos)`.
-async function executeDiagramCall(code) {
+async function executeDiagramCall(code, callerVars = runner.vars, callStack = runner?.callStack || [activeDiagramId]) {
   const match = parseDiagramCall(code);
   if (!match) throw Error("Usá Clase.metodo(argumentos) en el bloque Funciones");
   const [, resultName, className, methodName, argumentText] = match;
@@ -295,17 +295,34 @@ async function executeDiagramCall(code) {
   // (por ejemplo, Math.max) cuando no hay un diagrama con esa firma.
   if (!target) {
     const nativeCall = `${className}.${methodName}(${argumentText})`;
-    const value = expr(nativeCall);
-    if (resultName) runner.vars[resultName] = value;
-    return;
+    const value = evaluateWith(callerVars, nativeCall);
+    if (resultName) callerVars[resultName] = value;
+    return value;
   }
-  if (target.id === activeDiagramId) throw Error("Un diagrama no puede llamarse a sí mismo");
-  const args = splitArguments(argumentText).map((argument) => expr(argument));
-  const value = await runDiagramFunction(target, args);
-  if (resultName) runner.vars[resultName] = value;
+  if (callStack.includes(target.id))
+    throw Error(`Llamada recursiva detectada: ${[...callStack, target.id].map((id) => diagramLabel(diagrams.find((item) => item.id === id))).join(" → ")}`);
+  const args = splitArguments(argumentText).map((argument) => evaluateWith(callerVars, argument));
+  const value = await runDiagramFunction(target, args, [...callStack, target.id]);
+  if (resultName) callerVars[resultName] = value;
+  return value;
 }
 
-async function runDiagramFunction(target, args) {
+// Permite el patrón de función delegadora `return Clase.metodo(argumentos)`.
+// Las demás expresiones continúan usando el evaluador normal y sincrónico.
+async function evaluateFunctionValue(source, vars, callStack) {
+  const match = parseDiagramCall(source);
+  if (match) {
+    const [, resultName, className, methodName] = match;
+    const target = diagrams.find(
+      (item) => String(item.method.className ?? "").trim() === className &&
+        String(item.method.name ?? "").trim() === methodName,
+    );
+    if (!resultName && target) return executeDiagramCall(source, vars, callStack);
+  }
+  return evaluateWith(vars, source);
+}
+
+async function runDiagramFunction(target, args, callStack) {
   const parameters = target.declarations.filter((item) => item.kind === "parameter");
   if (args.length !== parameters.length)
     throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s); recibió ${args.length}`);
@@ -319,15 +336,24 @@ async function runDiagramFunction(target, args) {
       else if (["declare", "constant"].includes(item.type)) vars[item.name] = evaluateWith(vars, item.expression);
       else if (item.type === "output") out(evaluateWith(vars, item.expression));
       else if (item.type === "input") { const value = await ask(item); if (value === Symbol.for("cancel")) throw Error("Entrada cancelada"); vars[item.name] = parse(value); }
-      else if (item.type === "call") {
-        const saved = runner.vars;
-        runner.vars = vars;
-        try { await executeDiagramCall(item.code); } finally { runner.vars = saved; }
-      }
-      else if (item.type === "return") return { returned: true, value: evaluateWith(vars, item.expression) };
+      else if (item.type === "call") await executeDiagramCall(item.code, vars, callStack);
+      else if (item.type === "return") return { returned: true, value: await evaluateFunctionValue(item.expression, vars, callStack) };
       else if (item.type === "if") { const result = await execute(evaluateWith(vars, item.condition) ? item.then : item.else); if (result?.returned) return result; }
+      else if (item.type === "switch") {
+        const value = String(evaluateWith(vars, item.expression));
+        const selected = item.cases.find((entry) => String(entry.value) === value);
+        const result = await execute(selected ? selected.body : (Array.isArray(item.default) ? item.default : []));
+        if (result?.returned) return result;
+      }
       else if (item.type === "while") { let guard = 0; while (evaluateWith(vars, item.condition)) { if (++guard > 10000) throw Error("Bucle de función demasiado largo"); const result = await execute(item.body); if (result?.returned) return result; } }
+      else if (item.type === "doWhile") { let guard = 0; do { if (++guard > 10000) throw Error("Bucle de función demasiado largo"); const result = await execute(item.body); if (result?.returned) return result; } while (evaluateWith(vars, item.condition)); }
       else if (item.type === "for") { const step = Number(evaluateWith(vars, item.step)); for (vars[item.variable] = evaluateWith(vars, item.start); step >= 0 ? vars[item.variable] <= evaluateWith(vars, item.end) : vars[item.variable] >= evaluateWith(vars, item.end); vars[item.variable] += step) { const result = await execute(item.body); if (result?.returned) return result; } }
+      else if (item.type === "foreach") {
+        const values = evaluateWith(vars, item.collection);
+        if (!values?.[Symbol.iterator]) throw Error("La colección no es iterable");
+        for (const value of values) { vars[item.variable] = value; const result = await execute(item.body); if (result?.returned) return result; }
+      }
+      else throw Error(`El bloque ${item.type} no puede ejecutarse dentro de una función`);
     }
     return null;
   };
@@ -385,7 +411,7 @@ async function advance() {
       out(expr(b.expression));
       runner.pc++;
     } else if (x.kind === "call") {
-      await executeDiagramCall(b.code);
+      await executeDiagramCall(b.code, runner.vars, runner.callStack);
       runner.pc++;
     } else if (x.kind === "return") {
       runner.returnValue = expr(b.expression);
@@ -483,6 +509,7 @@ function start(auto) {
       done: false,
       auto,
       current: null,
+      callStack: [activeDiagramId],
     };
   }
   runner.auto = auto;
