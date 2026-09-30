@@ -89,14 +89,19 @@ function createNsPlusFile() {
       id: `NSPDiagram-${index + 1}`,
       theClass: item.method.className,
       name: item.method.name,
-      code: nsPlusCode(item.blocks, item.declarations, item.method),
+      code: nsPlusCode(item.blocks, [...(classDeclarations[String(item.method.className ?? "").trim() || "Sin clase"] || []), ...item.declarations], item.method),
     })),
     ...metadata,
     meta: utf8ToBase64(JSON.stringify(audit)),
+    // El HTML mantiene compatibilidad con NS Plus; este estado conserva
+    // además UML, el método activo y las variables de clase sin perder datos.
     editorState: {
       version: 2,
       diagrams,
       activeDiagramId,
+      classDeclarations,
+      umlState,
+      editorMode,
     },
   };
   projectMeta = audit;
@@ -129,6 +134,8 @@ function useDiagrams(items, preferredId = null) {
     blocks: item.blocks,
     declarations: item.declarations || [],
     method: item.method || { className: "LaClase", modifiers: "public", returnType: "void", name: "main" },
+    ...(item.umlSource ? { umlSource: item.umlSource } : {}),
+    collapsed: Boolean(item.collapsed),
   }));
   if (!diagrams.length) throw new Error("Estructura inválida");
   nextDiagramId = Math.max(0, ...diagrams.map((item) => Number(String(item.id).match(/(\d+)$/)?.[1]) || 0)) + 1;
@@ -304,24 +311,38 @@ saveBtn.onclick = () => {
   toast("Proyecto guardado");
 };
 function loadProjectFile(d) {
+  // Se prefiere el estado completo de NS#; el HTML sirve para archivos ajenos
+  // que sólo contienen el formato original de NS Plus.
   if (d.ver === 0.5 && typeof d.data === "string") {
     const original = JSON.parse(base64ToUtf8(reverse(d.data)));
     if (hasEditorState(original.editorState)) {
       const state = original.editorState;
       useDiagrams(state.version === 2 ? state.diagrams : [{ id: "diagram-1", blocks: state.blocks, declarations: state.declarations, method: state.method }], state.activeDiagramId);
+      classDeclarations = normalizeClassDeclarations(state.classDeclarations);
+      migrateGeneratedClassDeclarations();
+      umlState = normalizeUmlState(state.umlState);
+      editorMode = state.editorMode === "uml" ? "uml" : "ns";
     } else {
       useDiagrams((original.diagrams || []).map((item, index) => ({ id: `diagram-${index + 1}`, ...parseNsPlusCode(item.code || "") })));
+      classDeclarations = normalizeClassDeclarations();
+      umlState = normalizeUmlState();
+      editorMode = "ns";
     }
     projectName.value = original.name || "Proyecto importado";
     projectMeta = readNsPlusMeta(original.meta);
   } else {
     useDiagrams(d.diagrams || [{ id: "diagram-1", blocks: d.blocks, declarations: d.declarations || [], method: d.method || method }], d.activeDiagramId);
+    classDeclarations = normalizeClassDeclarations(d.classDeclarations);
+    migrateGeneratedClassDeclarations();
+    umlState = normalizeUmlState(d.umlState);
+    editorMode = d.editorMode === "uml" ? "uml" : "ns";
     projectName.value = d.name || "Proyecto importado";
     projectMeta = readNsPlusMeta(d.meta);
   }
   nextId = Math.max(0, ...diagrams.flatMap((item) => allBlocks(item.blocks).map((b) => b.id))) + 1;
   selectedId = blocks[0]?.id || null;
   render();
+  if (typeof showEditorMode === "function") showEditorMode(editorMode);
 }
 
 openFile.onchange = async (e) => {

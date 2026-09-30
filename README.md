@@ -23,13 +23,15 @@ navegadores aplican a los módulos cargados desde `file://`.
 ```text
 ├── index.html                 Interfaz y orden de carga de los scripts
 ├── styles.css                 Diseño, colores y tema oscuro
+├── uml-class.css              Lienzo, clases y relaciones UML
 ├── core.js                    Estado compartido, utilidades y versión
 ├── exam-context.js            Parámetros de URL y metadata de sesión/examen
 ├── editor.js                  Modelo, renderizado y controles del editor
 ├── nsplus-format.js           Importación y exportación de archivos .nsplus
 ├── runtime.js                 Compilación, intérprete y panel de ejecución
 ├── drag-drop.js               Arrastrar, soltar, reubicar y eliminar bloques
-└── persistence.js             Autoguardado local y arranque de la aplicación
+├── persistence.js             Autoguardado local y arranque de la aplicación
+└── uml-class.js               Editor de clases y relaciones UML
 ```
 
 El orden de los `<script defer>` en `index.html` es parte de la arquitectura:
@@ -38,7 +40,7 @@ anteriores. Si se agrega un archivo, incluilo allí en el punto apropiado.
 
 ## Versión
 
-La versión actual es **v1.1.12** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.20** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -48,7 +50,43 @@ que están ejecutando.
 - Un proyecto puede contener muchos diagramas. El panel **Diagramas** permite
   crear y cambiar entre ellos. Los métodos se agrupan bajo su clase; al agregar
   un método desde Declaraciones se incorpora a la clase actual. Cada uno
-  conserva sus propias instrucciones, declaraciones y firma de método.
+  conserva sus propias instrucciones, declaraciones y firma de método. El área
+  central muestra juntos los métodos de la clase seleccionada. Se puede elegir
+  una clase desde su encabezado en el panel, y la flecha de cada método permite
+  contraerlo o expandirlo. Este estado se conserva al guardar.
+- La pestaña **UML Clases** permite crear clases, escribir atributos y métodos,
+  moverlas en el lienzo y conectarlas con asociaciones, herencia,
+  implementación, agregación, composición o dependencia. La selección se edita
+  en el panel derecho; **Exportar SVG** descarga una imagen del diagrama.
+  Las clases y relaciones se conservan en el autoguardado y en los archivos
+  `.nsplus` creados por NS#.
+- En **UML Clases**, escribí un miembro por línea. Un atributo puede ser
+  `+ cliente: Cliente` o `- edad: Integer = 18`. Un método puede ser
+  `+ guardar(cliente: Cliente): Boolean`; también se aceptan parámetros con el
+  tipo primero, como `Cliente cliente`. Los símbolos `+`, `-`, `#` y `~`
+  representan visibilidad pública, privada, protegida y de paquete. Se puede
+  agregar `static` al método. **Conectar clases** pide seleccionar el origen y
+  después el destino; seleccioná una relación para cambiar su tipo o etiqueta.
+  La tecla Supr elimina la clase o relación seleccionada cuando no se está
+  escribiendo en un campo.
+- Al escribir un atributo como `+ cliente: Cliente`, si existe una clase única
+  llamada `Cliente`, aparece una asociación azul automáticamente. También se
+  reconocen tipos como `Cliente[]` y `List<Cliente>`. La conexión sigue los
+  cambios de nombres y tipos; una relación dibujada manualmente entre las mismas
+  clases tiene prioridad. La línea automática sale del atributo que contiene el
+  tipo y llega al encabezado de la clase correspondiente.
+- **Exportar a NS#** crea un diagrama por método UML, con parámetros en la
+  firma y atributos en una sección única de variables de clase. Los atributos
+  con valor inicial se convierten en variables inicializadas. Si una clase no
+  tiene métodos, se crea un método `main` vacío. Si un atributo o método no
+  tiene una sintaxis reconocible, la exportación indica el primer dato que hay
+  que corregir y no cambia NS#. Antes de exportar se muestra
+  una confirmación: al aceptarla, se elimina todo el contenido actual de NS# y
+  se generan los diagramas desde UML. Cancelar conserva los diagramas actuales.
+  Los métodos de una clase comparten los valores de sus variables de clase
+  durante la ejecución. Un parámetro o variable local con el mismo nombre tiene
+  prioridad dentro de su método. Las exportaciones de versiones anteriores se
+  migran al abrirlas para quitar las copias repetidas de cada método.
 - Para usar un diagrama desde otro, definí su clase, método y parámetros en la
   cabecera. Después agregá un bloque **Funciones / Métodos** y escribí, por
   ejemplo, `resultado = Math.sum(2, 3)`. La función debe terminar con un bloque
@@ -56,11 +94,22 @@ que están ejecutando.
 - `blocks` contiene las instrucciones del diagrama activo.
 - Los bloques `if`, `switch` y los bucles pueden contener otros bloques.
 - `declarations` guarda parámetros, constantes y variables del método.
+- `classDeclarations` guarda las variables compartidas por los métodos de cada
+  clase. La sección **Variables de clase** permite agregarlas, editarlas y
+  quitarlas desde NS#. Las declaraciones que ya estaban en métodos exportados
+  desde UML se migran a esta sección al abrir proyectos anteriores.
 - `method` guarda clase, modificadores, tipo de retorno y nombre del método.
+- `umlState` guarda las clases y relaciones creadas a mano. Las asociaciones
+  deducidas de los tipos se recalculan y no se guardan por separado.
+- `editorMode` recuerda si estaba abierta la vista NS# o UML. El guardado local
+  y el archivo `.nsplus` de NS# conservan estos datos y el método activo.
 - `render()` vuelve a dibujar la interfaz cuando cambia algún dato.
 - `compile()` convierte el árbol visual en pasos simples para el ejecutor.
 - `advance()` ejecuta un paso y controla entradas, salidas, saltos y bucles.
-- El guardado `.nsplus` conserva el formato de NS Plus original.
+- El guardado `.nsplus` conserva el contenedor de NS Plus 0.5. Incluye una
+  representación HTML de los diagramas y el estado completo de NS# en
+  `editorState`. Al abrir un archivo de otro editor que no tenga ese estado,
+  NS# reconstruye los diagramas desde el HTML disponible.
 - Cada modificación crea una copia automática en `localStorage`.
 - El botón **Reportar un bug** abre el cliente de correo predeterminado con el
   destinatario y asunto ya completados. Para usarlo, el navegador debe tener

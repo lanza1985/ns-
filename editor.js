@@ -79,14 +79,102 @@ function blockHTML(b) {
 }
 const empty = () =>
   '<div class="nested-empty">Seleccioná aquí para insertar</div>';
+function classDeclarationsHTML(className) {
+  const fields = classDeclarations[className] || [];
+  return `<section class="class-variables" data-class-name="${esc(className)}">
+    <div class="class-variables-head"><strong>Variables de clase · ${esc(className)}</strong><button type="button" data-add-class-variable>+ Variable</button></div>
+    <div class="class-variables-list">${fields.length ? fields.map((item, index) => `<div class="class-variable-row">
+      <select data-class-kind="${index}" aria-label="Tipo de variable ${esc(item.name)}"><option value="variable"${item.kind === "variable" ? " selected" : ""}>Variable</option><option value="declare"${item.kind === "declare" ? " selected" : ""}>Inicializada</option><option value="constant"${item.kind === "constant" ? " selected" : ""}>Constante</option></select>
+      <span class="editable declaration-field" contenteditable="true" spellcheck="false" data-class-declaration="${index}" data-class-field="dataType">${esc(item.dataType)}</span>
+      <span class="editable declaration-field" contenteditable="true" spellcheck="false" data-class-declaration="${index}" data-class-field="name">${esc(item.name)}</span>
+      ${item.kind !== "variable" ? `← <span class="editable declaration-field" contenteditable="true" spellcheck="false" data-class-declaration="${index}" data-class-field="expression">${esc(item.expression)}</span>` : ""}
+      <button class="remove-declaration" type="button" data-remove-class-variable="${index}" aria-label="Eliminar variable ${esc(item.name)}">×</button>
+    </div>`).join("") : '<span class="class-variables-empty">Sin variables de clase</span>'}</div>
+  </section>`;
+}
 function render() {
-  diagram.innerHTML = declarationHTML() + list(blocks);
+  // El lienzo muestra todos los métodos de la clase activa; al terminar se
+  // restauran los alias globales para que los controles editen el método activo.
+  const active = diagrams.find((item) => item.id === activeDiagramId) || diagrams[0];
+  const activeClassName = String(active.method?.className ?? "").trim() || "Sin clase";
+  diagram.innerHTML = classDeclarationsHTML(activeClassName) + diagrams.filter((item) => (String(item.method?.className ?? "").trim() || "Sin clase") === activeClassName).map((item) => {
+    blocks = item.blocks;
+    declarations = item.declarations;
+    method = item.method;
+    const collapsed = Boolean(item.collapsed);
+    return `<section class="ns-method${item.id === activeDiagramId ? " is-active" : ""}${collapsed ? " is-collapsed" : ""}" data-method-diagram="${esc(item.id)}">
+      <div class="ns-method-bar"><button class="ns-method-toggle" type="button" data-toggle-method="${esc(item.id)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? "Expandir" : "Contraer"} ${esc(diagramLabel(item))}"><span aria-hidden="true">${collapsed ? "▸" : "▾"}</span></button><strong>${esc(diagramLabel(item))}</strong></div>
+      <div class="ns-method-content"${collapsed ? " hidden" : ""}>${declarationHTML()}<div class="ns-method-blocks" data-root-diagram="${esc(item.id)}">${item.blocks.length ? list(item.blocks) : '<div class="ns-method-empty">Elegí un bloque o arrastralo aquí.</div>'}</div></div>
+    </section>`;
+  }).join("");
+  blocks = active.blocks;
+  declarations = active.declarations;
+  method = active.method;
   diagram.style.display = "block";
   emptyState.hidden = true;
   renderDiagramList();
   main.classList.toggle("no-colors", !colorToggle.checked);
   bind();
+  bindMethodSections();
   renderVars();
+}
+
+function activateDiagramContext(id) {
+  // Un clic, foco o arrastre sobre otro método cambia el destino de las
+  // acciones sin reconstruir el DOM ni perder el elemento que recibió el evento.
+  const item = diagrams.find((entry) => entry.id === id);
+  if (!item || item.id === activeDiagramId) return;
+  if (runner) {
+    clearTimeout(timer);
+    timer = null;
+    runner = null;
+    state("Listo");
+    renderVars();
+  }
+  activeDiagramId = item.id;
+  blocks = item.blocks;
+  declarations = item.declarations;
+  method = item.method;
+  selectedId = null;
+  $$(".ns-block.selected").forEach((block) => block.classList.remove("selected"));
+  $$(".ns-method").forEach((section) => section.classList.toggle("is-active", section.dataset.methodDiagram === id));
+  $$(".project-card").forEach((card) => card.classList.toggle("active", card.querySelector("[data-diagram-id]")?.dataset.diagramId === id));
+  scheduleAutoSave();
+}
+
+function bindMethodSections() {
+  $("[data-add-class-variable]").onclick = () => {
+    const className = $(".class-variables").dataset.className;
+    (classDeclarations[className] ||= []).push({ kind: "variable", dataType: "Integer", name: "variable", expression: "" });
+    render();
+  };
+  $$('[data-class-kind]').forEach((select) => {
+    select.onchange = () => {
+      const fields = classDeclarations[select.closest(".class-variables").dataset.className];
+      const field = fields[Number(select.dataset.classKind)];
+      field.kind = select.value;
+      if (field.kind !== "variable" && !field.expression) field.expression = "0";
+      render();
+    };
+  });
+  $$('[data-remove-class-variable]').forEach((button) => {
+    button.onclick = () => {
+      classDeclarations[button.closest(".class-variables").dataset.className].splice(Number(button.dataset.removeClassVariable), 1);
+      render();
+    };
+  });
+  $$(".ns-method").forEach((section) => {
+    section.addEventListener("pointerdown", () => activateDiagramContext(section.dataset.methodDiagram), true);
+    section.addEventListener("focusin", () => activateDiagramContext(section.dataset.methodDiagram), true);
+  });
+  $$('[data-toggle-method]').forEach((button) => {
+    button.onclick = () => {
+      const item = diagrams.find((entry) => entry.id === button.dataset.toggleMethod);
+      if (!item) return;
+      item.collapsed = !item.collapsed;
+      render();
+    };
+  });
 }
 
 function diagramLabel(item) {
@@ -97,14 +185,15 @@ function diagramLabel(item) {
 
 function renderDiagramList() {
   const classes = new Map();
+  const activeClassName = String(diagrams.find((item) => item.id === activeDiagramId)?.method?.className ?? "").trim() || "Sin clase";
   diagrams.forEach((item) => {
     const className = String(item.method?.className ?? "").trim() || "Sin clase";
     if (!classes.has(className)) classes.set(className, []);
     classes.get(className).push(item);
   });
   diagramList.innerHTML = [...classes]
-    .map(([className, methods]) => `<section class="class-card">
-      <div class="class-card-header"><span class="mini-diagram">▤</span><b>${esc(className)}</b></div>
+    .map(([className, methods]) => `<section class="class-card${className === activeClassName ? " active-class" : ""}">
+      <button class="class-card-header class-card-select" type="button" data-class-first-diagram="${esc(methods[0].id)}" aria-label="Mostrar clase ${esc(className)}"><span class="mini-diagram">▤</span><b>${esc(className)}</b></button>
       <div class="class-method-list">${methods
         .map((item, index) => `<div class="project-card ${item.id === activeDiagramId ? "active" : ""}">
           <button class="project-card-select" data-diagram-id="${esc(item.id)}"><span><b>${esc(String(item.method?.name ?? "").trim() || "sinMétodo")}</b><small>${index === 0 ? "Método" : "Método de la clase"}</small></span></button>
@@ -116,6 +205,9 @@ function renderDiagramList() {
   $$('[data-diagram-id]').forEach((button) => {
     button.onclick = () => selectDiagram(button.dataset.diagramId);
   });
+  $$('[data-class-first-diagram]').forEach((button) => {
+    button.onclick = () => selectDiagram(button.dataset.classFirstDiagram);
+  });
   $$('[data-remove-diagram]').forEach((button) => {
     button.onclick = (event) => {
       event.stopPropagation();
@@ -126,14 +218,16 @@ function renderDiagramList() {
 
 function selectDiagram(id) {
   const item = diagrams.find((diagramItem) => diagramItem.id === id);
-  if (!item || item.id === activeDiagramId) return;
-  stop();
+  if (!item) return;
+  if (item.id !== activeDiagramId) stop();
+  item.collapsed = false;
   activeDiagramId = item.id;
   blocks = item.blocks;
   declarations = item.declarations;
   method = item.method;
   selectedId = blocks[0]?.id || null;
   render();
+  [...diagram.querySelectorAll("[data-method-diagram]")].find((section) => section.dataset.methodDiagram === item.id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
 
 function createDiagram(className = null) {
@@ -170,6 +264,7 @@ function removeDiagram(id) {
   if (index < 0) return;
   if (!confirm(`¿Eliminar el diagrama ${diagramLabel(diagrams[index])}?`)) return;
   const [removed] = diagrams.splice(index, 1);
+  if (!diagrams.some((item) => item.method.className === removed.method.className)) delete classDeclarations[removed.method.className.trim() || "Sin clase"];
   if (removed.id === activeDiagramId) {
     const replacement = diagrams[Math.min(index, diagrams.length - 1)];
     activeDiagramId = replacement.id;
@@ -243,6 +338,17 @@ function find(id) {
   return result;
 }
 
+function findBlockInDiagram(item, id) {
+  let result;
+  if (!item) return result;
+  walk(item.blocks, (block) => {
+    if (block.id !== id) return false;
+    result = block;
+    return true;
+  });
+  return result;
+}
+
 // Busca un bloque y también informa en qué Array y posición se encuentra.
 function locate(id) {
   let result;
@@ -270,7 +376,8 @@ function bind() {
   );
   $$(".editable").forEach((el) => {
     el.onclick = (e) => e.stopPropagation();
-    if (el.dataset.field === "code" && find(+el.dataset.id)?.type === "call") {
+    const owner = diagrams.find((item) => item.id === el.closest("[data-method-diagram]")?.dataset.methodDiagram);
+    if (el.dataset.field === "code" && findBlockInDiagram(owner, +el.dataset.id)?.type === "call") {
       el.onfocus = () => showCallAutocomplete(el);
       el.oninput = () => showCallAutocomplete(el);
     }
@@ -280,21 +387,36 @@ function bind() {
         const field = el.dataset.method;
         const value = el.textContent.trim();
         if (field === "className") {
-          const previousClassName = method.className;
+          // Renombrar la clase afecta a todos sus métodos y mueve sus variables
+          // compartidas; si el destino existe, conserva sus nombres existentes.
+          const previousClassName = owner.method.className;
           diagrams
             .filter((item) => item.method.className === previousClassName)
             .forEach((item) => (item.method.className = value));
-        } else method[field] = value;
+          const oldKey = previousClassName.trim() || "Sin clase";
+          const newKey = value.trim() || "Sin clase";
+          if (oldKey !== newKey && classDeclarations[oldKey]) {
+            const existing = classDeclarations[newKey] || [];
+            classDeclarations[newKey] = [...existing, ...classDeclarations[oldKey].filter((variable) => !existing.some((other) => other.name === variable.name))];
+            delete classDeclarations[oldKey];
+          }
+        } else owner.method[field] = value;
+        render();
+        return;
+      }
+      if (el.dataset.classDeclaration !== undefined) {
+        const fields = classDeclarations[el.closest(".class-variables").dataset.className];
+        fields[Number(el.dataset.classDeclaration)][el.dataset.classField] = el.textContent.trim();
         render();
         return;
       }
       if (el.dataset.declaration) {
-        declarations[+el.dataset.declaration][el.dataset.declarationField] =
+        owner.declarations[+el.dataset.declaration][el.dataset.declarationField] =
           el.textContent.trim();
         render();
         return;
       }
-      const b = find(+el.dataset.id),
+      const b = findBlockInDiagram(owner, +el.dataset.id),
         f = el.dataset.field;
       if (f.startsWith("case"))
         b.cases[+f.slice(4)].value = el.textContent.trim();
@@ -534,6 +656,10 @@ duplicateBtn.onclick = () =>
   });
 newBtn.onclick = () => {
   stop();
+  classDeclarations = Object.create(null);
+  umlState = { classes: [], relations: [], nextId: 1 };
+  editorMode = "ns";
+  if (typeof showEditorMode === "function") showEditorMode("ns");
   blocks = [];
   declarations = [];
   method = {
@@ -554,6 +680,7 @@ newBtn.onclick = () => {
 newDiagramBtn.onclick = () => createDiagram();
 loadExample.onclick = () => {
   stop();
+  classDeclarations = Object.create(null);
   blocks = example();
   declarations = [
     { kind: "declare", dataType: "Integer", name: "suma", expression: "0" },

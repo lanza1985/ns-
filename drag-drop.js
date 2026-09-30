@@ -40,19 +40,40 @@ function canDropInContainer(payload, container) {
   if (!payload) return false;
   if (payload.origin !== "diagram") return payload.origin === "palette";
   const [parentId] = container.dataset.container.split(":");
-  // A block cannot be inserted in itself or in one of its descendants.
-  return !includesBlock(find(payload.id), Number(parentId));
+  // Un bloque no puede insertarse en sí mismo ni en sus descendientes.
+  return !includesBlock(draggedBlock(payload), Number(parentId));
 }
 function canDropByBlock(payload, targetId) {
   return (
     !!payload &&
     (payload.origin !== "diagram" ||
-      (payload.id !== targetId && !includesBlock(find(payload.id), targetId)))
+      (payload.id !== targetId && !includesBlock(draggedBlock(payload), targetId)))
   );
 }
+function draggedBlock(payload) {
+  // El bloque puede venir de otro método visible; su id por sí solo no indica
+  // cuál es el árbol que debemos consultar durante el arrastre.
+  const owner = diagrams.find((item) => item.id === payload.diagramId) || diagrams.find((item) => allBlocks(item.blocks).some((block) => block.id === payload.id));
+  if (!owner) return null;
+  let found = null;
+  walk(owner.blocks, (block) => {
+    if (block.id !== payload.id) return false;
+    found = block;
+    return true;
+  });
+  return found;
+}
 function removeDragged(payload) {
+  // Se extrae del método de origen antes de insertarlo en el destino.
   if (payload?.origin !== "diagram") return null;
-  const loc = locate(payload.id);
+  const owner = diagrams.find((item) => item.id === payload.diagramId) || diagrams.find((item) => allBlocks(item.blocks).some((block) => block.id === payload.id));
+  if (!owner) return null;
+  let loc = null;
+  walk(owner.blocks, (block, container, index) => {
+    if (block.id !== payload.id) return false;
+    loc = { a: container, i: index };
+    return true;
+  });
   if (!loc) return null;
   return loc.a.splice(loc.i, 1)[0];
 }
@@ -96,7 +117,9 @@ function setupDragDrop() {
     el.prepend(handle);
     handle.ondragstart = (e) => {
       e.stopPropagation();
-      beginDrag(e, { origin: "diagram", id: Number(el.dataset.id) }, "move");
+      const diagramId = el.closest("[data-method-diagram]")?.dataset.methodDiagram;
+      activateDiagramContext(diagramId);
+      beginDrag(e, { origin: "diagram", id: Number(el.dataset.id), diagramId }, "move");
       setTimeout(() => el.classList.add("dragging"), 0);
     };
     handle.ondragend = (e) => {
@@ -113,7 +136,9 @@ function setupDragDrop() {
       // la propagación, el padre reemplaza este payload y se mueve/elimina el
       // contenedor entero en lugar del bloque que se tomó.
       e.stopPropagation();
-      beginDrag(e, { origin: "diagram", id: Number(el.dataset.id) }, "move");
+      const diagramId = el.closest("[data-method-diagram]")?.dataset.methodDiagram;
+      activateDiagramContext(diagramId);
+      beginDrag(e, { origin: "diagram", id: Number(el.dataset.id), diagramId }, "move");
       setTimeout(() => el.classList.add("dragging"), 0);
     };
     el.ondragend = () => {
@@ -137,6 +162,7 @@ function setupDragDrop() {
     el.ondrop = (e) => {
       e.preventDefault();
       e.stopPropagation();
+      activateDiagramContext(el.closest("[data-method-diagram]")?.dataset.methodDiagram);
       const p = dragPayload(e),
         targetId = Number(el.dataset.id);
       if (!canDropByBlock(p, targetId)) return finishDrop();
@@ -165,6 +191,7 @@ function setupDragDrop() {
     el.ondrop = (e) => {
       e.preventDefault();
       e.stopPropagation();
+      activateDiagramContext(el.closest("[data-method-diagram]")?.dataset.methodDiagram);
       const p = dragPayload(e);
       if (!canDropInContainer(p, el)) return finishDrop();
       const target = targetListFor(el.dataset.container),
@@ -176,27 +203,26 @@ function setupDragDrop() {
       render();
     };
   });
-  diagram.ondragover = (e) => {
-    if (e.target === diagram && dragPayload(e)) {
+  $$("[data-root-diagram]").forEach((root) => {
+    root.ondragover = (e) => {
+      if (e.target !== root && !e.target.classList.contains("ns-method-empty")) return;
+      if (!dragPayload(e)) return;
       allowDrop(e, dragged?.origin === "palette" ? "copy" : "move");
-      diagram.classList.add("drop-inside");
-    }
-  };
-  diagram.ondragleave = (e) => {
-    if (e.target === diagram) diagram.classList.remove("drop-inside");
-  };
-  diagram.ondrop = (e) => {
-    if (e.target !== diagram) return;
-    e.preventDefault();
-    const b = droppedBlock(dragPayload(e));
-    if (b) {
-      blocks.push(b);
-      selectedId = b.id;
-    }
-    finishDrop();
-    diagram.classList.remove("drop-inside");
-    render();
-  };
+      root.classList.add("drop-inside");
+    };
+    root.ondragleave = (e) => {
+      if (leftDropTarget(e, root)) root.classList.remove("drop-inside");
+    };
+    root.ondrop = (e) => {
+      if (e.target !== root && !e.target.classList.contains("ns-method-empty")) return;
+      e.preventDefault();
+      activateDiagramContext(root.dataset.rootDiagram);
+      const b = droppedBlock(dragPayload(e));
+      if (b) { blocks.push(b); selectedId = b.id; }
+      finishDrop();
+      render();
+    };
+  });
 
   // El cesto acepta solamente bloques que ya pertenecen al diagrama. Así,
   // arrastrar desde la paleta hacia él nunca elimina ni crea un bloque.

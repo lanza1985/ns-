@@ -19,6 +19,11 @@ function localProjectSnapshot() {
     name: projectName.value,
     diagrams,
     activeDiagramId,
+    // Estos datos forman parte del mismo proyecto, incluso si está abierta la
+    // vista NS#: al restaurar también se recupera la edición UML en curso.
+    classDeclarations,
+    umlState,
+    editorMode,
     meta: projectMeta,
     colors: colorToggle.checked,
     darkTheme: darkToggle.checked,
@@ -75,6 +80,10 @@ function restoreLocalProject(showMessage = true) {
 
     stop();
     useDiagrams(savedProject.diagrams || [{ id: "diagram-1", blocks: savedProject.blocks, declarations: savedProject.declarations || [], method: savedProject.method || method }], savedProject.activeDiagramId);
+    classDeclarations = normalizeClassDeclarations(savedProject.classDeclarations);
+    migrateGeneratedClassDeclarations();
+    umlState = normalizeUmlState(savedProject.umlState);
+    editorMode = savedProject.editorMode === "uml" ? "uml" : "ns";
     projectName.value = savedProject.name || "Proyecto sin título";
     projectMeta = readNsPlusMeta(savedProject.meta);
     colorToggle.checked = savedProject.colors !== false;
@@ -87,6 +96,7 @@ function restoreLocalProject(showMessage = true) {
     updateAutoSaveStatus(savedProject);
     if (showMessage) {
       render();
+      if (typeof showEditorMode === "function") showEditorMode(editorMode);
       toast("Copia local restaurada");
     }
     return true;
@@ -122,7 +132,13 @@ const renderWithoutTypeColors = render;
 render = function () {
   renderWithoutTypeColors();
   $$(".ns-block").forEach((el) => {
-    const block = find(Number(el.dataset.id));
+    const owner = diagrams.find((item) => item.id === el.closest("[data-method-diagram]")?.dataset.methodDiagram);
+    let block;
+    if (owner) walk(owner.blocks, (candidate) => {
+      if (candidate.id !== Number(el.dataset.id)) return false;
+      block = candidate;
+      return true;
+    });
     if (block) el.classList.add("type-" + block.type);
   });
   setupDragDrop();

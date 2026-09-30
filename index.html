@@ -11,6 +11,7 @@
     />
     <title>NS# · Editor ejecutable</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="uml-class.css" />
   </head>
   <body>
     <!-- Barra principal: archivos, declaraciones, apariencia y ejecución. -->
@@ -21,6 +22,10 @@
         value="Proyecto sin título"
         aria-label="Nombre del proyecto"
       />
+      <nav class="editor-modes" aria-label="Tipo de editor">
+        <button id="nsModeBtn" type="button" class="active" aria-pressed="true">NS#</button>
+        <button id="umlModeBtn" type="button" aria-pressed="false">UML Clases</button>
+      </nav>
       <button id="newBtn" class="topbtn" title="Nuevo">✚</button>
       <label class="topbtn file" title="Abrir"
         >📂<input
@@ -245,9 +250,59 @@
           </label>
         </div>
       </aside>
+      <section id="umlEditor" class="uml-editor" aria-label="Editor de clases UML" hidden>
+        <div class="uml-toolbar">
+          <strong>Diagrama de clases</strong>
+          <button id="umlAddClass" type="button">+ Clase</button>
+          <label>Relación
+            <select id="umlRelationType">
+              <option value="association">Asociación</option>
+              <option value="inheritance">Herencia</option>
+              <option value="implementation">Implementación</option>
+              <option value="aggregation">Agregación</option>
+              <option value="composition">Composición</option>
+              <option value="dependency">Dependencia</option>
+            </select>
+          </label>
+          <button id="umlConnect" type="button" aria-pressed="false">Conectar clases</button>
+          <button id="umlDelete" type="button" disabled>Eliminar selección</button>
+          <button id="umlExportNs" type="button">Exportar a NS#</button>
+          <button id="umlExport" type="button">Exportar SVG</button>
+          <span id="umlHint">Agregá una clase para empezar.</span>
+        </div>
+        <div class="uml-layout">
+          <div id="umlViewport" class="uml-viewport">
+            <div id="umlCanvas" class="uml-canvas">
+              <svg id="umlLines" class="uml-lines" width="1600" height="1000" viewBox="0 0 1600 1000" aria-hidden="true"></svg>
+              <div id="umlClasses"></div>
+            </div>
+          </div>
+          <aside class="uml-inspector">
+            <h2>Propiedades</h2>
+            <p id="umlInspectorEmpty">Seleccioná una clase o una relación para editarla.</p>
+            <div id="umlClassFields" hidden>
+              <label>Nombre de la clase <input id="umlClassName" type="text" /></label>
+              <label>Atributos <textarea id="umlAttributes" rows="7" spellcheck="false" placeholder="+ nombre: Tipo&#10;- edad: Integer"></textarea></label>
+              <label>Métodos <textarea id="umlMethods" rows="7" spellcheck="false" placeholder="+ guardar(): void&#10;- validar(): Boolean"></textarea></label>
+              <small>Una línea por atributo o método. Usá + público, - privado, # protegido o ~ paquete. Si el tipo de un atributo coincide con otra clase, aparece una conexión azul automáticamente.</small>
+            </div>
+            <div id="umlRelationFields" hidden>
+              <label>Tipo <select id="umlSelectedRelationType">
+                <option value="association">Asociación</option>
+                <option value="inheritance">Herencia</option>
+                <option value="implementation">Implementación</option>
+                <option value="aggregation">Agregación</option>
+                <option value="composition">Composición</option>
+                <option value="dependency">Dependencia</option>
+              </select></label>
+              <label>Etiqueta <input id="umlRelationLabel" type="text" placeholder="opcional" /></label>
+            </div>
+          </aside>
+        </div>
+      </section>
     </main>
     <footer>
-      <b>NS# <span id="appVersion">v1.1.12</span> · Creado por Luis Lanzafame · Software libre — Licencia MIT</b>
+      <b>NS# <span id="appVersion">v1.1.20</span> · Creado por Luis Lanzafame · Software libre — Licencia MIT</b>
     </footer>
     <!-- Ventana utilizada por cada bloque E para solicitar un valor. -->
     <dialog id="inputDialog">
@@ -263,6 +318,16 @@
         </div>
       </form>
     </dialog>
+    <dialog id="umlExportNsDialog" aria-labelledby="umlExportNsTitle" aria-describedby="umlExportNsWarning">
+      <form method="dialog">
+        <h2 id="umlExportNsTitle">Reemplazar el contenido de NS#</h2>
+        <p id="umlExportNsWarning">Todo lo que ya esté programado en NS# se eliminará. Se crearán de nuevo las clases, métodos y variables desde el diagrama UML. Esta acción no se puede deshacer.</p>
+        <div>
+          <button type="submit" value="cancel">Cancelar</button>
+          <button type="submit" value="replace" class="danger-confirm">Eliminar y generar</button>
+        </div>
+      </form>
+    </dialog>
     <div id="toast" class="toast"></div>
     <!-- Scripts clásicos: funcionan incluso al abrir este HTML con doble clic. -->
     <script defer src="core.js"></script>
@@ -272,5 +337,6 @@
     <script defer src="runtime.js"></script>
     <script defer src="drag-drop.js"></script>
     <script defer src="persistence.js"></script>
+    <script defer src="uml-class.js"></script>
   </body>
 </html>

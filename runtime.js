@@ -322,11 +322,42 @@ async function evaluateFunctionValue(source, vars, callStack) {
   return evaluateWith(vars, source);
 }
 
+function classScopeFor(className, scopes) {
+  // Se crea una vez por clase y ejecución; las llamadas entre sus métodos
+  // comparten los valores actuales de estos atributos.
+  if (scopes[className]) return scopes[className];
+  const scope = Object.create(null);
+  for (const item of classDeclarations[className] || [])
+    scope[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(scope, item.expression) : undefined;
+  scopes[className] = scope;
+  return scope;
+}
+
+function scopedVariables(className, scope, initial, shadowed) {
+  // El Proxy redirige lecturas y escrituras de atributos al ámbito compartido.
+  // Parámetros y variables locales con el mismo nombre quedan en este método.
+  const fields = new Set((classDeclarations[className] || []).map((item) => item.name));
+  const values = { ...scope, ...initial };
+  return new Proxy(values, {
+    get(target, key) {
+      return typeof key === "string" && fields.has(key) && !shadowed.has(key) ? scope[key] : target[key];
+    },
+    set(target, key, value) {
+      target[key] = value;
+      if (typeof key === "string" && fields.has(key) && !shadowed.has(key)) scope[key] = value;
+      return true;
+    },
+  });
+}
+
 async function runDiagramFunction(target, args, callStack) {
   const parameters = target.declarations.filter((item) => item.kind === "parameter");
   if (args.length !== parameters.length)
     throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s); recibió ${args.length}`);
-  const vars = Object.fromEntries(parameters.map((item, index) => [item.name, args[index]]));
+  const className = String(target.method.className ?? "").trim() || "Sin clase";
+  const scope = classScopeFor(className, runner.classScopes);
+  const shadowed = new Set(target.declarations.map((item) => item.name));
+  const vars = scopedVariables(className, scope, Object.fromEntries(parameters.map((item, index) => [item.name, args[index]])), shadowed);
   for (const item of target.declarations.filter((item) => item.kind !== "parameter"))
     vars[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(vars, item.expression) : undefined;
   const execute = async (items) => {
@@ -493,6 +524,9 @@ function start(auto) {
   runtimePanel.classList.add("open");
   blocksPanel.classList.remove("open");
   if (!runner || runner.done) {
+    const className = String(method.className ?? "").trim() || "Sin clase";
+    const classScopes = Object.create(null);
+    const classScope = classScopeFor(className, classScopes);
     const declaredVariables = declarations
       .filter((item) => item.kind !== "parameter")
       .map((item, index) => ({
@@ -504,7 +538,8 @@ function start(auto) {
     runner = {
       steps: compile([...declaredVariables, ...blocks]),
       pc: 0,
-      vars: {},
+      vars: scopedVariables(className, classScope, {}, new Set(declarations.map((item) => item.name))),
+      classScopes,
       loops: {},
       done: false,
       auto,
