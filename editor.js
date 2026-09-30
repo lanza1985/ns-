@@ -598,7 +598,7 @@ $$("[data-close]").forEach(
 );
 runtimeClose.onclick = () => runtimePanel.classList.remove("open");
 colorToggle.onchange = render;
-darkToggle.checked = localStorage.getItem("ns-theme") === "dark";
+darkToggle.checked = localStorage.getItem("ns-theme") !== "light";
 document.body.classList.toggle("dark-theme", darkToggle.checked);
 darkToggle.onchange = () => {
   document.body.classList.toggle("dark-theme", darkToggle.checked);

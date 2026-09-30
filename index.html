@@ -302,7 +302,8 @@
       </section>
     </main>
     <footer>
-      <b>NS# <span id="appVersion">v1.1.20</span> · Creado por Luis Lanzafame · Software libre — Licencia MIT</b>
+      <b>NS# <span id="appVersion">v1.1.23</span> · Creado por Luis Lanzafame · Software libre — Licencia MIT</b>
+      <button id="browserTestsBtn" type="button">Ejecutar pruebas</button>
     </footer>
     <!-- Ventana utilizada por cada bloque E para solicitar un valor. -->
     <dialog id="inputDialog">
@@ -328,6 +329,15 @@
         </div>
       </form>
     </dialog>
+    <dialog id="browserTestsDialog" aria-labelledby="browserTestsTitle">
+      <div class="browser-tests-header">
+        <h2 id="browserTestsTitle">Pruebas del navegador</h2>
+        <button id="browserTestsClose" type="button" aria-label="Cerrar pruebas">×</button>
+      </div>
+      <p id="browserTestsSummary" role="status" aria-live="polite">Las pruebas todavía no se ejecutaron.</p>
+      <ol id="browserTestsResults" class="browser-tests-results"></ol>
+      <button id="browserTestsRerun" type="button">Ejecutar de nuevo</button>
+    </dialog>
     <div id="toast" class="toast"></div>
     <!-- Scripts clásicos: funcionan incluso al abrir este HTML con doble clic. -->
     <script defer src="core.js"></script>
@@ -338,5 +348,6 @@
     <script defer src="drag-drop.js"></script>
     <script defer src="persistence.js"></script>
     <script defer src="uml-class.js"></script>
+    <script defer src="browser-tests.js"></script>
   </body>
 </html>

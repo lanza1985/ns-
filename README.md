@@ -31,16 +31,26 @@ navegadores aplican a los módulos cargados desde `file://`.
 ├── runtime.js                 Compilación, intérprete y panel de ejecución
 ├── drag-drop.js               Arrastrar, soltar, reubicar y eliminar bloques
 ├── persistence.js             Autoguardado local y arranque de la aplicación
-└── uml-class.js               Editor de clases y relaciones UML
+├── uml-class.js               Editor de clases y relaciones UML
+└── browser-tests.js           Pruebas ejecutables desde el navegador
 ```
 
 El orden de los `<script defer>` en `index.html` es parte de la arquitectura:
 los archivos posteriores usan las funciones y el estado declarados por los
 anteriores. Si se agrega un archivo, incluilo allí en el punto apropiado.
 
+## Pruebas en el navegador
+
+Abrí `index.html` y hacé clic en **Ejecutar pruebas** en el pie de página.
+El cuadro muestra cada resultado y el total de pruebas correctas. Podés volver
+a ejecutarlas con **Ejecutar de nuevo**. No requieren instalación ni framework
+y usan datos propios para no cambiar el proyecto abierto. Cubren el formato
+`.nsplus`, la ejecución de diagramas, el autoguardado, la conversión UML y los
+controles de bloques.
+
 ## Versión
 
-La versión actual es **v1.1.21** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.23** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.

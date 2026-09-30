@@ -87,7 +87,9 @@ function restoreLocalProject(showMessage = true) {
     projectName.value = savedProject.name || "Proyecto sin título";
     projectMeta = readNsPlusMeta(savedProject.meta);
     colorToggle.checked = savedProject.colors !== false;
-    darkToggle.checked = Boolean(savedProject.darkTheme);
+    darkToggle.checked = savedProject.darkTheme === undefined
+      ? localStorage.getItem("ns-theme") !== "light"
+      : Boolean(savedProject.darkTheme);
     document.body.classList.toggle("dark-theme", darkToggle.checked);
     localStorage.setItem("ns-theme", darkToggle.checked ? "dark" : "light");
     applyInterface(savedProject.interface !== "classic");
