@@ -1,0 +1,67 @@
+.editor-modes { display: flex; flex: none; gap: 2px; padding: 3px; background: #ffffff25; border-radius: 8px; }
+.editor-modes button { border: 0; border-radius: 6px; padding: 9px 10px; color: inherit; background: transparent; white-space: nowrap; cursor: pointer; font-weight: 700; }
+.editor-modes button.active { background: white; color: #344ab0; }
+body.uml-mode .type-menu, body.uml-mode .color-toggle, body.uml-mode .runbar, body.uml-mode #exportBtn { display: none; }
+.modern-ui .editor-modes { background: #eef2f9; }
+.modern-ui .editor-modes button { color: #536581; }
+.modern-ui .editor-modes button.active { color: #3858d6; background: #fff; box-shadow: 0 1px 5px #24314a20; }
+.dark-theme .editor-modes { background: #273449; }
+.dark-theme .editor-modes button.active { background: #35425a; color: #dce5ff; }
+body.uml-mode #main > :not(.uml-editor) { display: none !important; }
+.uml-editor { height: 100%; display: flex; flex-direction: column; background: #f4f7fb; color: #273655; }
+.uml-editor[hidden] { display: none; }
+.uml-toolbar { display: flex; align-items: center; gap: 9px; padding: 11px 20px; min-height: 64px; background: #fff; border-bottom: 1px solid #dce3ef; flex-wrap: wrap; }
+.uml-toolbar strong { margin-right: 12px; white-space: nowrap; }
+.uml-toolbar button, .uml-toolbar select { border: 1px solid #cbd5e1; border-radius: 7px; padding: 8px 10px; background: white; color: #273655; cursor: pointer; font: inherit; font-size: 13px; }
+.uml-toolbar button:hover { border-color: #3858d6; background: #f1f4ff; }
+.uml-toolbar button:disabled { opacity: .5; cursor: default; }
+.uml-toolbar #umlAddClass, .uml-toolbar #umlConnect[aria-pressed="true"] { background: #3858d6; border-color: #3858d6; color: white; }
+.uml-toolbar #umlExportNs { background: #e9eeff; border-color: #afc0fa; color: #314dbd; font-weight: 700; }
+.uml-toolbar #umlExportNs:hover { background: #dce5ff; }
+.uml-toolbar label { font-size: 13px; display: flex; align-items: center; gap: 6px; }
+#umlHint { font-size: 12px; color: #64748b; margin-left: auto; }
+.uml-layout { display: flex; min-height: 0; flex: 1; }
+.uml-viewport { flex: 1; min-width: 0; overflow: auto; background-color: #f4f7fb; background-image: radial-gradient(#cad5e4 1px, transparent 1px); background-size: 20px 20px; }
+.uml-canvas { position: relative; width: 1600px; height: 1000px; }
+.uml-lines { position: absolute; inset: 0; overflow: visible; pointer-events: none; --uml-paper: #fff; --uml-ink: #364152; }
+.uml-relation { pointer-events: stroke; cursor: pointer; }
+.uml-stroke { stroke: var(--uml-ink); stroke-width: 2; fill: none; }
+.uml-relation.selected .uml-stroke { stroke: #3858d6; stroke-width: 3; }
+.uml-auto { pointer-events: none; }
+.uml-auto .uml-stroke { stroke: #3858d6; }
+.uml-auto .uml-line-label { fill: #3858d6; }
+.dark-theme .uml-auto .uml-stroke { stroke: #8aa4ff; }
+.dark-theme .uml-auto .uml-line-label { fill: #b1c2ff; }
+.uml-hit { stroke: transparent; stroke-width: 18; }
+.uml-line-label { font: 13px Arial, sans-serif; fill: #273655; paint-order: stroke; stroke: #fff; stroke-width: 5px; }
+.uml-class { position: absolute; min-height: 100px; border: 2px solid #364152; background: white; box-shadow: 0 4px 12px #27365518; color: #263247; cursor: grab; touch-action: none; user-select: none; }
+.uml-class:active { cursor: grabbing; }
+.uml-class.selected, .uml-class.connecting { border-color: #3858d6; box-shadow: 0 0 0 3px #3858d635, 0 6px 18px #27365525; }
+.uml-class-title { min-height: 39px; display: grid; place-items: center; padding: 6px 10px; font-weight: bold; border-bottom: 1px solid #364152; background: #f8faff; overflow-wrap: anywhere; text-align: center; }
+.uml-class-members { min-height: 29px; border-bottom: 1px solid #364152; padding: 5px 10px; font: 14px/22px Arial, sans-serif; overflow-wrap: anywhere; white-space: pre-wrap; }
+.uml-class-members:last-of-type { border-bottom: 0; }
+.uml-placeholder { color: #a3afbf; font-style: italic; }
+.uml-resize { position: absolute; right: 0; bottom: 0; width: 17px; height: 17px; cursor: ew-resize; background: linear-gradient(135deg, transparent 50%, #8190a7 50%); }
+.uml-inspector { width: 280px; flex: none; padding: 20px; border-left: 1px solid #dce3ef; background: #fff; overflow: auto; }
+.uml-inspector h2 { margin: 0 0 17px; font-size: 17px; }
+.uml-inspector p, .uml-inspector small { color: #64748b; font-size: 13px; line-height: 1.5; }
+.uml-inspector label { display: block; margin: 0 0 15px; font-size: 13px; font-weight: 700; }
+.uml-inspector input, .uml-inspector textarea, .uml-inspector select { display: block; width: 100%; margin-top: 6px; border: 1px solid #cbd5e1; border-radius: 7px; padding: 9px; color: #263247; background: white; font: 14px/1.4 Arial, sans-serif; }
+.uml-inspector textarea { resize: vertical; min-height: 90px; }
+.dark-theme .uml-editor { background: #111827; color: #e2e8f0; }
+.dark-theme .uml-toolbar, .dark-theme .uml-inspector { background: #1b2637; border-color: #334155; }
+.dark-theme .uml-viewport { background-color: #111827; background-image: radial-gradient(#334155 1px, transparent 1px); }
+.dark-theme .uml-toolbar button, .dark-theme .uml-toolbar select, .dark-theme .uml-inspector input, .dark-theme .uml-inspector textarea, .dark-theme .uml-inspector select { background: #202b3d; color: #e2e8f0; border-color: #475569; }
+.dark-theme .uml-toolbar #umlAddClass, .dark-theme .uml-toolbar #umlConnect[aria-pressed="true"] { background: #3858d6; color: white; }
+.dark-theme .uml-toolbar #umlExportNs { background: #283b74; color: #dce5ff; }
+.dark-theme .uml-class { background: #202b3d; color: #e2e8f0; border-color: #94a3b8; }
+.dark-theme .uml-class-title { background: #293449; border-color: #94a3b8; }
+.dark-theme .uml-class-members { border-color: #94a3b8; }
+.dark-theme .uml-lines { --uml-paper: #202b3d; --uml-ink: #cbd5e1; }
+.dark-theme .uml-line-label { fill: #e2e8f0; stroke: #111827; }
+#umlExportNsDialog p { margin: 0; line-height: 1.5; }
+#umlExportNsDialog .danger-confirm { background: #c62828; border-color: #c62828; color: white; cursor: pointer; }
+#umlExportNsDialog .danger-confirm:hover { background: #a71f1f; }
+.dark-theme #umlExportNsDialog button[value="cancel"] { background: #263247; border-color: #475569; color: #e2e8f0; }
+@media (max-width: 900px) { .uml-inspector { width: 235px; } #umlHint { width: 100%; } }
+@media (max-width: 700px) { .uml-layout { flex-direction: column; } .uml-inspector { width: 100%; max-height: 220px; border-left: 0; border-top: 1px solid #dce3ef; } .uml-toolbar { padding: 8px; } .editor-modes { order: 2; } }

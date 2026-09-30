@@ -488,7 +488,7 @@ function fresh(t) {
     input: { name: "variable" },
     output: { expression: "expresión" },
     comment: { text: "comentario" },
-    instruction: { code: "instrucción" },
+    instruction: { code: "variable = {}" },
     declare: { name: "variable", expression: "expresión" },
     parameter: { name: "parámetro" },
     constant: { name: "CONSTANTE", expression: "valor" },

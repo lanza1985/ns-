@@ -40,7 +40,7 @@ anteriores. Si se agrega un archivo, incluilo allí en el punto apropiado.
 
 ## Versión
 
-La versión actual es **v1.1.20** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.21** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -91,6 +91,11 @@ que están ejecutando.
   cabecera. Después agregá un bloque **Funciones / Métodos** y escribí, por
   ejemplo, `resultado = Math.sum(2, 3)`. La función debe terminar con un bloque
   `return` si necesitás usar su resultado.
+- Durante la ejecución, los diagramas con el mismo nombre de clase forman una
+  clase JavaScript ES6. Sus variables de clase son propiedades de una instancia
+  compartida. También podés crear instancias con `vehiculo = new Vehiculo()`,
+  asignar propiedades con `vehiculo.color = "Red"` y llamar a sus métodos desde
+  un bloque **Funciones / Métodos**, por ejemplo `vehiculo.setColor("Blue")`.
 - `blocks` contiene las instrucciones del diagrama activo.
 - Los bloques `if`, `switch` y los bucles pueden contener otros bloques.
 - `declarations` guarda parámetros, constantes y variables del método.

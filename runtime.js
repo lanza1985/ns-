@@ -99,34 +99,46 @@ const JS_RESERVED_WORDS = new Set([
 ]);
 
 function expr(x) {
-  // Evalúa una expresión usando solamente las variables válidas del programa.
-  // Así, un nombre inválido que no participa en esta expresión no bloquea toda
-  // la ejecución del diagrama importado.
-  const entries = Object.entries(runner.vars).filter(
-    ([name]) => JS_IDENTIFIER.test(name) && !JS_RESERVED_WORDS.has(name),
-  );
-  return Function(
-    ...entries.map(([name]) => name),
-    `"use strict";return (${String(x ?? "")})`,
-  )(...entries.map(([, value]) => value));
+  return evaluateWith(runner.vars, x, runner.classInstance);
 }
 function condition(x) {
   if (/\b[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*=(?!=)/.test(x))
     throw Error('Usá "==" para comparar valores; "=" no es válido en una condición');
   return expr(x);
 }
-function assign(code) {
-  const m = code.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:=|←)\s*(.+)$/);
-  if (!m)
-    throw Error("Se esperaba una asignación, por ejemplo: total = total + 1");
-  runner.vars[m[1]] = expr(m[2]);
+function assignTo(vars, code, instance) {
+  const m = String(code).match(/^\s*((?:[A-Za-z_$][\w$]*)(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*(?:=|←)\s*(.+)$/);
+  if (!m) throw Error("Se esperaba una asignación, por ejemplo: vehiculo.color = \"Red\"");
+  const path = m[1].split(/\s*\.\s*/);
+  if (path.length === 1 && path[0] === "this") throw Error("No se puede asignar a this");
+  const value = evaluateWith(vars, m[2], instance);
+  if (path.length === 1 && path[0] !== "this") {
+    vars[path[0]] = value;
+    return;
+  }
+  const root = path.shift();
+  let object = root === "this" ? instance : vars[root];
+  for (const key of path.slice(0, -1)) {
+    if (object == null) throw Error(`No se puede acceder a ${key} de ${root}`);
+    object = object[key];
+  }
+  if (object == null) throw Error(`No se puede asignar una propiedad de ${root}`);
+  object[path[path.length - 1]] = value;
 }
 
-function evaluateWith(vars, source) {
+function assign(code) {
+  assignTo(runner.vars, code, runner.classInstance);
+}
+
+const variableInstances = new WeakMap();
+function evaluateWith(vars, source, instance) {
+  instance ||= variableInstances.get(vars);
   const entries = Object.entries(vars).filter(
     ([name]) => JS_IDENTIFIER.test(name) && !JS_RESERVED_WORDS.has(name),
   );
-  return Function(...entries.map(([name]) => name), `"use strict";return (${String(source ?? "")})`)(...entries.map(([, value]) => value));
+  for (const [name, constructor] of Object.entries(runner?.classConstructors || {}))
+    if (JS_IDENTIFIER.test(name) && !JS_RESERVED_WORDS.has(name) && !entries.some(([key]) => key === name)) entries.push([name, constructor]);
+  return Function(...entries.map(([name]) => name), `"use strict";return (${String(source ?? "")})`).call(instance, ...entries.map(([, value]) => value));
 }
 
 function splitArguments(source) {
@@ -276,6 +288,10 @@ function callValidationError(code) {
       return `${diagramLabel(target)} espera ${expected} argumento(s); recibiste ${received}`;
     return "";
   }
+  const ownerType = className === "this"
+    ? String(method.className ?? "").trim()
+    : declarations.find((item) => item.name === className)?.dataType;
+  if (ownerType && diagrams.some((item) => String(item.method.className ?? "").trim() === ownerType && String(item.method.name ?? "").trim() === methodName)) return "";
   const nativeOwner = globalThis[className];
   if (nativeOwner && typeof nativeOwner[methodName] === "function") return "";
   return `No existe el método ${className}.${methodName}`;
@@ -295,7 +311,7 @@ async function executeDiagramCall(code, callerVars = runner.vars, callStack = ru
   // (por ejemplo, Math.max) cuando no hay un diagrama con esa firma.
   if (!target) {
     const nativeCall = `${className}.${methodName}(${argumentText})`;
-    const value = evaluateWith(callerVars, nativeCall);
+    const value = await evaluateWith(callerVars, nativeCall);
     if (resultName) callerVars[resultName] = value;
     return value;
   }
@@ -323,14 +339,35 @@ async function evaluateFunctionValue(source, vars, callStack) {
 }
 
 function classScopeFor(className, scopes) {
-  // Se crea una vez por clase y ejecución; las llamadas entre sus métodos
-  // comparten los valores actuales de estos atributos.
+  // Cada clase tiene una instancia compartida durante esta ejecución.
   if (scopes[className]) return scopes[className];
-  const scope = Object.create(null);
-  for (const item of classDeclarations[className] || [])
-    scope[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(scope, item.expression) : undefined;
+  const Constructor = runner.classConstructors[className];
+  const scope = new Constructor();
   scopes[className] = scope;
   return scope;
+}
+
+function createDiagramClasses() {
+  const constructors = Object.create(null);
+  const names = new Set(diagrams.map((item) => String(item.method.className ?? "").trim() || "Sin clase"));
+  for (const className of names) {
+    constructors[className] = class DiagramClass {
+      constructor() {
+        for (const item of classDeclarations[className] || [])
+          this[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(this, item.expression, this) : undefined;
+      }
+    };
+  }
+  for (const target of diagrams) {
+    const className = String(target.method.className ?? "").trim() || "Sin clase";
+    const name = String(target.method.name ?? "").trim();
+    if (!JS_IDENTIFIER.test(name) || JS_RESERVED_WORDS.has(name)) continue;
+    Object.defineProperty(constructors[className].prototype, name, {
+      configurable: true,
+      value: async function (...args) { return runDiagramFunction(target, args, [target.id], this); },
+    });
+  }
+  return constructors;
 }
 
 function scopedVariables(className, scope, initial, shadowed) {
@@ -338,7 +375,7 @@ function scopedVariables(className, scope, initial, shadowed) {
   // Parámetros y variables locales con el mismo nombre quedan en este método.
   const fields = new Set((classDeclarations[className] || []).map((item) => item.name));
   const values = { ...scope, ...initial };
-  return new Proxy(values, {
+  const scoped = new Proxy(values, {
     get(target, key) {
       return typeof key === "string" && fields.has(key) && !shadowed.has(key) ? scope[key] : target[key];
     },
@@ -348,22 +385,24 @@ function scopedVariables(className, scope, initial, shadowed) {
       return true;
     },
   });
+  variableInstances.set(scoped, scope);
+  return scoped;
 }
 
-async function runDiagramFunction(target, args, callStack) {
+async function runDiagramFunction(target, args, callStack, instance) {
   const parameters = target.declarations.filter((item) => item.kind === "parameter");
   if (args.length !== parameters.length)
     throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s); recibió ${args.length}`);
   const className = String(target.method.className ?? "").trim() || "Sin clase";
-  const scope = classScopeFor(className, runner.classScopes);
+  const scope = instance || classScopeFor(className, runner.classScopes);
   const shadowed = new Set(target.declarations.map((item) => item.name));
   const vars = scopedVariables(className, scope, Object.fromEntries(parameters.map((item, index) => [item.name, args[index]])), shadowed);
   for (const item of target.declarations.filter((item) => item.kind !== "parameter"))
-    vars[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(vars, item.expression) : undefined;
+    vars[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(vars, item.expression, scope) : undefined;
   const execute = async (items) => {
     for (const item of items) {
       if (item.type === "comment" || item.type === "variable") continue;
-      if (item.type === "instruction") { const assignment = item.code.match(/^\s*([A-Za-z_$][\w$]*)\s*(?:=|←)\s*(.+)$/); if (!assignment) throw Error("La instrucción de una función debe ser una asignación"); vars[assignment[1]] = evaluateWith(vars, assignment[2]); }
+      if (item.type === "instruction") assignTo(vars, item.code, scope);
       else if (["declare", "constant"].includes(item.type)) vars[item.name] = evaluateWith(vars, item.expression);
       else if (item.type === "output") out(evaluateWith(vars, item.expression));
       else if (item.type === "input") { const value = await ask(item); if (value === Symbol.for("cancel")) throw Error("Entrada cancelada"); vars[item.name] = parse(value); }
@@ -526,7 +565,6 @@ function start(auto) {
   if (!runner || runner.done) {
     const className = String(method.className ?? "").trim() || "Sin clase";
     const classScopes = Object.create(null);
-    const classScope = classScopeFor(className, classScopes);
     const declaredVariables = declarations
       .filter((item) => item.kind !== "parameter")
       .map((item, index) => ({
@@ -538,14 +576,18 @@ function start(auto) {
     runner = {
       steps: compile([...declaredVariables, ...blocks]),
       pc: 0,
-      vars: scopedVariables(className, classScope, {}, new Set(declarations.map((item) => item.name))),
+      vars: {},
       classScopes,
+      classConstructors: Object.create(null),
       loops: {},
       done: false,
       auto,
       current: null,
       callStack: [activeDiagramId],
     };
+    runner.classConstructors = createDiagramClasses();
+    runner.classInstance = classScopeFor(className, classScopes);
+    runner.vars = scopedVariables(className, runner.classInstance, {}, new Set(declarations.map((item) => item.name)));
   }
   runner.auto = auto;
   state(auto ? "Ejecutando" : "Pausado");
