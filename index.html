@@ -284,7 +284,7 @@
               <label>Nombre de la clase <input id="umlClassName" type="text" /></label>
               <label>Atributos <textarea id="umlAttributes" rows="7" spellcheck="false" placeholder="+ nombre: Tipo&#10;- edad: Integer"></textarea></label>
               <label>Métodos <textarea id="umlMethods" rows="7" spellcheck="false" placeholder="+ guardar(): void&#10;- validar(): Boolean"></textarea></label>
-              <small>Una línea por atributo o método. Usá + público, - privado, # protegido o ~ paquete. Si el tipo de un atributo coincide con otra clase, aparece una conexión azul automáticamente.</small>
+              <small>Una línea por atributo o método. Usá + público, - privado, # protegido o ~ paquete. Si el tipo de un atributo coincide con otra clase, aparece una conexión azul y la flecha muestra nombre y tipo. Seleccioná la conexión para cambiar el tipo de relación.</small>
             </div>
             <div id="umlRelationFields" hidden>
               <label>Tipo <select id="umlSelectedRelationType">
@@ -295,7 +295,15 @@
                 <option value="composition">Composición</option>
                 <option value="dependency">Dependencia</option>
               </select></label>
-              <label>Etiqueta <input id="umlRelationLabel" type="text" placeholder="opcional" /></label>
+              <label id="umlRelationMultiplicityField" hidden>Multiplicidad en destino <select id="umlRelationMultiplicity">
+                <option value="1">1</option>
+                <option value="0..1">0..1</option>
+                <option value="0..N">0..N</option>
+                <option value="1..N">1..N</option>
+              </select></label>
+              <label id="umlRelationPropertyField" hidden>Nombre del atributo <input id="umlRelationProperty" type="text" spellcheck="false" /></label>
+              <label id="umlRelationPropertyTypeField" hidden>Tipo del atributo <input id="umlRelationPropertyType" type="text" readonly /></label>
+              <label id="umlRelationLabelField">Etiqueta <input id="umlRelationLabel" type="text" placeholder="opcional" /></label>
             </div>
           </aside>
         </div>

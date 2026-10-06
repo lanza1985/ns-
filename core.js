@@ -117,7 +117,9 @@ function normalizeUmlState(value) {
     from: item.from,
     to: item.to,
     type: ["association", "inheritance", "implementation", "aggregation", "composition", "dependency"].includes(item.type) ? item.type : "association",
+    multiplicity: ["1", "0..1", "0..N", "1..N"].includes(item.multiplicity) ? item.multiplicity : "1",
     label: String(item.label ?? ""),
+    ...(Number.isInteger(item.attributeIndex) && item.attributeIndex >= 0 ? { attributeIndex: item.attributeIndex } : {}),
   })) : [];
   return { classes, relations, nextId: Math.max(1, Number(value?.nextId) || 1) };
 }

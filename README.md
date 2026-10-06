@@ -77,14 +77,24 @@ que están ejecutando.
   representan visibilidad pública, privada, protegida y de paquete. Se puede
   agregar `static` al método. **Conectar clases** pide seleccionar el origen y
   después el destino; seleccioná una relación para cambiar su tipo o etiqueta.
+  Las asociaciones muestran una flecha abierta hacia el destino. Si el origen
+  tiene un atributo del tipo de la clase destino, aparece como `nombre: Tipo`
+  sobre la flecha y se oculta en la caja de la clase. Si hay varios atributos
+  hacia la misma clase, se dibuja una conexión separada para cada uno.
+  Seleccioná la flecha para cambiar el tipo de relación o editar el nombre del
+  atributo; el tipo del atributo se muestra sin edición. Una etiqueta escrita
+  en la relación reemplaza el texto de la flecha. En asociaciones podés elegir
+  multiplicidad `1`, `0..1`, `0..N` o `1..N`; se muestra junto a la clase de
+  destino y se conserva al guardar el proyecto.
   La tecla Supr elimina la clase o relación seleccionada cuando no se está
   escribiendo en un campo.
 - Al escribir un atributo como `+ cliente: Cliente`, si existe una clase única
   llamada `Cliente`, aparece una asociación azul automáticamente. También se
-  reconocen tipos como `Cliente[]` y `List<Cliente>`. La conexión sigue los
-  cambios de nombres y tipos; una relación dibujada manualmente entre las mismas
-  clases tiene prioridad. La línea automática sale del atributo que contiene el
-  tipo y llega al encabezado de la clase correspondiente.
+  reconocen tipos como `Cliente[]` y `List<Cliente>`. La conexión muestra el
+  nombre y tipo del atributo y sigue sus cambios; una relación
+  dibujada manualmente entre las mismas clases tiene prioridad. La línea
+  automática sale de la sección de atributos y llega al encabezado de la clase
+  correspondiente.
 - **Exportar a NS#** crea un diagrama por método UML, con parámetros en la
   firma y atributos en una sección única de variables de clase. Los atributos
   con valor inicial se convierten en variables inicializadas. Si una clase no

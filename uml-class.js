@@ -7,6 +7,7 @@ const umlHintEl = $("#umlHint");
 let umlSelected = null;
 let umlConnecting = false;
 let umlConnectionStart = null;
+let umlInspectorRelationId = null;
 
 function showEditorMode(mode) {
   editorMode = mode === "uml" ? "uml" : "ns";
@@ -34,30 +35,38 @@ function umlMemberLines(value) {
   return String(value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
-// Las relaciones inferidas se calculan desde los atributos; nunca se guardan
-// como relaciones manuales para que sigan los cambios de nombres y tipos.
+function umlAttributeAt(source, index) {
+  const line = umlMemberLines(source.attributes)[index];
+  const declaration = line?.match(/^[+\-#~]?\s*([A-Za-z_$][\w$]*)\s*:\s*(.+)$/);
+  if (!declaration) return null;
+  return { name: declaration[1], type: declaration[2].split("=")[0].trim(), index };
+}
+
+// Las relaciones inferidas se calculan desde los atributos. Al cambiar su tipo,
+// se guarda sólo esa relación como manual y las demás siguen siendo inferidas.
 function umlInferredRelations(classes = umlState.classes, manualRelations = umlState.relations) {
   const names = new Map();
   classes.forEach((item) => {
     const name = item.name.trim();
     if (name) names.set(name, [...(names.get(name) || []), item]);
   });
-  const manualPairs = new Set(manualRelations.map((item) => [item.from, item.to].sort().join("|")));
   const matches = [];
   classes.forEach((source) => {
     umlMemberLines(source.attributes).forEach((line, attributeIndex) => {
-      const declaration = line.match(/^[+\-#~]?\s*([\w$]+)\s*:\s*(.+)$/);
-      if (!declaration) return;
-      const [, property, typeText] = declaration;
+      const attribute = umlAttributeAt(source, attributeIndex);
+      if (!attribute) return;
       // Incluye tipos de colección como List<Cliente> y Cliente[].
-      const tokens = typeText.split("=")[0].match(/[A-Za-z_$][\w$]*/g) || [];
+      const tokens = attribute.type.match(/[A-Za-z_$][\w$]*/g) || [];
       [...new Set(tokens)].forEach((token) => {
         const candidates = names.get(token);
         if (candidates?.length !== 1 || candidates[0].id === source.id) return;
         const target = candidates[0];
-        const pair = [source.id, target.id].sort().join("|");
-        if (manualPairs.has(pair)) return;
-        matches.push({ id: `auto-${source.id}-${attributeIndex}-${target.id}`, from: source.id, to: target.id, type: "association", label: `${source.name}.${property}`, attributeIndex, auto: true });
+        const covered = manualRelations.some((relation) => {
+          const samePair = [relation.from, relation.to].sort().join("|") === [source.id, target.id].sort().join("|");
+          return samePair && (relation.attributeIndex === undefined || (relation.from === source.id && relation.attributeIndex === attributeIndex));
+        });
+        if (covered) return;
+        matches.push({ id: `auto-${source.id}-${attributeIndex}-${target.id}`, from: source.id, to: target.id, type: "association", multiplicity: "1", label: `${attribute.name}: ${attribute.type}`, attributeIndex, auto: true });
       });
     });
   });
@@ -90,11 +99,11 @@ function umlEndpoint(from, to) {
 }
 
 function umlAutoEndpoint(item, from, to) {
-  // La línea automática nace en la fila del atributo y termina en el encabezado
-  // de la clase de destino, incluso cuando las cajas se solapan en horizontal.
+  // La línea automática nace en la sección de atributos (aunque el atributo
+  // aparezca sólo como etiqueta de la relación) y llega al encabezado destino.
   const source = [...umlClassesEl.children].find((node) => node.dataset.umlClass === from.id);
   const target = [...umlClassesEl.children].find((node) => node.dataset.umlClass === to.id);
-  const row = source?.querySelector(`[data-uml-attribute="${item.attributeIndex}"]`);
+  const row = source?.querySelector(".uml-class-members");
   const header = target?.querySelector(".uml-class-title");
   if (!source || !target || !row || !header) return null;
   const canvas = umlCanvasEl.getBoundingClientRect();
@@ -106,66 +115,125 @@ function umlAutoEndpoint(item, from, to) {
   const left = sourceRect.left >= targetRect.right || (!right && sourceRect.left + sourceRect.width / 2 > targetRect.left + targetRect.width / 2);
   const sourceX = (right ? sourceRect.right : sourceRect.left) - canvas.left;
   const targetX = (right ? (sourceRect.right <= targetRect.left ? targetRect.left : targetRect.right) : (sourceRect.left >= targetRect.right ? targetRect.right : targetRect.left)) - canvas.left;
-  const sourceY = rowRect.top + rowRect.height / 2 - canvas.top;
-  const targetY = headerRect.top + headerRect.height / 2 - canvas.top;
+  const peers = [...umlInferredRelations(), ...umlState.relations.filter((relation) => relation.type === "association" && relation.attributeIndex !== undefined)]
+    .filter((relation) => relation.from === from.id && relation.to === to.id)
+    .sort((a, b) => a.attributeIndex - b.attributeIndex);
+  const peerIndex = peers.findIndex((relation) => relation.id === item.id);
+  const offset = peerIndex < 0 ? 0 : (peerIndex - (peers.length - 1) / 2) * 24;
+  const sourceY = rowRect.top + rowRect.height / 2 - canvas.top + offset;
+  const targetY = headerRect.top + headerRect.height / 2 - canvas.top + offset;
   const separated = right ? sourceRect.right <= targetRect.left : sourceRect.left >= targetRect.right;
-  const routeX = separated ? (sourceX + targetX) / 2 : (left ? Math.min(sourceRect.left, targetRect.left) - canvas.left - 28 : Math.max(sourceRect.right, targetRect.right) - canvas.left + 28);
+  const routeX = (separated ? (sourceX + targetX) / 2 : (left ? Math.min(sourceRect.left, targetRect.left) - canvas.left - 28 : Math.max(sourceRect.right, targetRect.right) - canvas.left + 28)) + offset;
   return { sourceX, sourceY, targetX, targetY, routeX };
+}
+
+function umlRelationAttributes(from, to) {
+  return umlMemberLines(from.attributes).flatMap((line, index) => {
+    const attribute = umlAttributeAt(from, index);
+    if (!attribute) return [];
+    const typeTokens = attribute.type.match(/[A-Za-z_$][\w$]*/g) || [];
+    return typeTokens.includes(to.name.trim()) ? [attribute] : [];
+  });
+}
+
+function umlLinkedAttributes(relation, from, to) {
+  return relation.attributeIndex === undefined
+    ? umlRelationAttributes(from, to)
+    : [umlAttributeAt(from, relation.attributeIndex)].filter(Boolean);
+}
+
+function umlRelationAttributeName(relation, from, to) {
+  return umlLinkedAttributes(relation, from, to).map((item) => `${item.name}: ${item.type}`).join(", ");
+}
+
+function umlMultiplicity(item) {
+  return ["1", "0..1", "0..N", "1..N"].includes(item?.multiplicity) ? item.multiplicity : "1";
+}
+
+function umlHiddenAttributeIndices(item) {
+  const hidden = new Set(umlInferredRelations().filter((relation) => relation.from === item.id).map((relation) => relation.attributeIndex));
+  umlState.relations.filter((relation) => relation.from === item.id).forEach((relation) => {
+    const target = umlState.classes.find((klass) => klass.id === relation.to);
+    if (target) umlLinkedAttributes(relation, item, target).forEach((attribute) => hidden.add(attribute.index));
+  });
+  return hidden;
+}
+
+function umlVisibleAttributes(item) {
+  const hidden = umlHiddenAttributeIndices(item);
+  return umlMemberLines(item.attributes).filter((line, index) => !hidden.has(index));
 }
 
 function umlRelationSvg(item, interactive = true) {
   const from = umlState.classes.find((node) => node.id === item.from);
   const to = umlState.classes.find((node) => node.id === item.to);
   if (!from || !to) return "";
-  if (item.auto) {
+  if (item.auto || (item.type === "association" && item.attributeIndex !== undefined)) {
     const points = umlAutoEndpoint(item, from, to);
     if (!points) return "";
     const { sourceX, sourceY, targetX, targetY, routeX } = points;
-    return `<g class="uml-relation uml-auto"><path d="M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}" class="uml-stroke"/></g>`;
+    const direction = targetX > routeX ? 1 : -1;
+    const anchor = direction > 0 ? "end" : "start";
+    const labelText = item.auto ? item.label : item.label || umlRelationAttributeName(item, from, to);
+    const label = labelText ? `<text x="${targetX - direction * 38}" y="${targetY - 9}" text-anchor="${anchor}" class="uml-line-label uml-property-label">${esc(labelText)}</text>` : "";
+    const multiplicity = `<text x="${targetX - direction * 8}" y="${targetY - 9}" text-anchor="${anchor}" class="uml-line-label uml-multiplicity">${umlMultiplicity(item)}</text>`;
+    const selected = umlSelected?.kind === "relation" && umlSelected.id === item.id;
+    return `<g class="uml-relation uml-auto${selected ? " selected" : ""}"${interactive ? ` data-uml-relation="${esc(item.id)}"` : ""}><path d="M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}" class="uml-stroke" marker-end="url(#umlAutoArrow)"/>${interactive ? `<path d="M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}" class="uml-hit"/>` : ""}${label}${multiplicity}</g>`;
   }
   const { x1, y1, x2, y2 } = umlEndpoint(from, to);
   const dotted = ["dependency", "implementation"].includes(item.type);
-  const end = ["inheritance", "implementation"].includes(item.type) ? ' marker-end="url(#umlTriangle)"' : item.type === "dependency" ? ' marker-end="url(#umlArrow)"' : "";
+  const end = ["inheritance", "implementation"].includes(item.type) ? ' marker-end="url(#umlTriangle)"' : ["association", "dependency"].includes(item.type) ? ' marker-end="url(#umlArrow)"' : "";
   const start = item.type === "aggregation" ? ' marker-start="url(#umlDiamond)"' : item.type === "composition" ? ' marker-start="url(#umlDiamondFilled)"' : "";
   const selected = umlSelected?.kind === "relation" && umlSelected.id === item.id;
-  const label = item.label ? `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 9}" text-anchor="middle" class="uml-line-label">${esc(item.label)}</text>` : "";
-  return `<g class="uml-relation${selected ? " selected" : ""}${item.auto ? " uml-auto" : ""}"${interactive ? ` data-uml-relation="${esc(item.id)}"` : ""}><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="uml-stroke"${dotted ? ' stroke-dasharray="7 5"' : ""}${start}${end}/>${interactive ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="uml-hit"/>` : ""}${label}</g>`;
+  const labelText = item.label || umlRelationAttributeName(item, from, to);
+  const label = labelText ? `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 9}" text-anchor="middle" class="uml-line-label">${esc(labelText)}</text>` : "";
+  const distance = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const multiplicity = item.type === "association"
+    ? `<text x="${x2 - (x2 - x1) / distance * 22}" y="${y2 - (y2 - y1) / distance * 22 - 9}" text-anchor="middle" class="uml-line-label uml-multiplicity">${umlMultiplicity(item)}</text>`
+    : "";
+  return `<g class="uml-relation${selected ? " selected" : ""}${item.auto ? " uml-auto" : ""}"${interactive ? ` data-uml-relation="${esc(item.id)}"` : ""}><line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="uml-stroke"${dotted ? ' stroke-dasharray="7 5"' : ""}${start}${end}/>${interactive ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" class="uml-hit"/>` : ""}${label}${multiplicity}</g>`;
 }
 
 function umlMarkers() {
   return `<defs>
     <marker id="umlTriangle" markerWidth="16" markerHeight="14" refX="15" refY="7" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 15 7 L 1 13 Z" fill="var(--uml-paper, #fff)" stroke="var(--uml-ink, #364152)" stroke-width="1.5"/></marker>
     <marker id="umlArrow" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 11 6 L 1 11" fill="none" stroke="var(--uml-ink, #364152)" stroke-width="1.5"/></marker>
-    <marker id="umlDiamond" markerWidth="20" markerHeight="14" refX="2" refY="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 2 7 L 10 1 L 18 7 L 10 13 Z" fill="var(--uml-paper, #fff)" stroke="var(--uml-ink, #364152)" stroke-width="1.5"/></marker>
-    <marker id="umlDiamondFilled" markerWidth="20" markerHeight="14" refX="2" refY="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 2 7 L 10 1 L 18 7 L 10 13 Z" fill="var(--uml-ink, #364152)" stroke="var(--uml-ink, #364152)" stroke-width="1.5"/></marker>
+    <marker id="umlAutoArrow" markerWidth="12" markerHeight="12" refX="11" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 11 6 L 1 11" fill="none" stroke="var(--uml-auto-ink, #3858d6)" stroke-width="1.5"/></marker>
+    <marker id="umlDiamond" markerWidth="20" markerHeight="14" refX="18" refY="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 2 7 L 10 1 L 18 7 L 10 13 Z" fill="var(--uml-paper, #fff)" stroke="var(--uml-ink, #364152)" stroke-width="1.5"/></marker>
+    <marker id="umlDiamondFilled" markerWidth="20" markerHeight="14" refX="18" refY="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 2 7 L 10 1 L 18 7 L 10 13 Z" fill="var(--uml-ink, #364152)" stroke="var(--uml-ink, #364152)" stroke-width="1.5"/></marker>
   </defs>`;
 }
 
 function renderUmlLines() {
-  umlLinesEl.innerHTML = umlMarkers() + umlInferredRelations().map((item) => umlRelationSvg(item, false)).join("") + umlState.relations.map((item) => umlRelationSvg(item)).join("");
+  umlLinesEl.innerHTML = umlMarkers() + umlInferredRelations().map((item) => umlRelationSvg(item)).join("") + umlState.relations.map((item) => umlRelationSvg(item)).join("");
 }
 
 function umlClassHtml(item) {
-  const members = (value, emptyText, attributes = false) => umlMemberLines(value).length
-    ? umlMemberLines(value).map((line, index) => `<div${attributes ? ` data-uml-attribute="${index}"` : ""}>${esc(line)}</div>`).join("")
+  const members = (lines, emptyText) => lines.length
+    ? lines.map((line) => `<div>${esc(line)}</div>`).join("")
     : `<div class="uml-placeholder">${emptyText}</div>`;
   const selected = umlSelected?.kind === "class" && umlSelected.id === item.id;
   const pending = umlConnectionStart === item.id;
   return `<article class="uml-class${selected ? " selected" : ""}${pending ? " connecting" : ""}" data-uml-class="${esc(item.id)}" style="left:${item.x}px;top:${item.y}px;width:${item.width}px" tabindex="0" aria-label="Clase ${esc(item.name)}">
     <header class="uml-class-title">${esc(item.name || "Sin nombre")}</header>
-    <div class="uml-class-members">${members(item.attributes, "Atributos", true)}</div>
-    <div class="uml-class-members">${members(item.methods, "Métodos")}</div>
+    <div class="uml-class-members">${members(umlVisibleAttributes(item), "Atributos")}</div>
+    <div class="uml-class-members">${members(umlMemberLines(item.methods), "Métodos")}</div>
     <span class="uml-resize" title="Cambiar ancho" aria-hidden="true"></span>
   </article>`;
 }
 
 function renderUmlSelection() {
   const klass = umlSelected?.kind === "class" && umlState.classes.find((item) => item.id === umlSelected.id);
-  const relation = umlSelected?.kind === "relation" && umlState.relations.find((item) => item.id === umlSelected.id);
+  const relation = umlSelected?.kind === "relation" && (umlState.relations.find((item) => item.id === umlSelected.id) || umlInferredRelations().find((item) => item.id === umlSelected.id));
+  const source = relation && umlState.classes.find((item) => item.id === relation.from);
+  const target = relation && umlState.classes.find((item) => item.id === relation.to);
+  const attributes = source && target ? umlLinkedAttributes(relation, source, target) : [];
+  const relationChanged = (relation?.id || null) !== umlInspectorRelationId;
+  umlInspectorRelationId = relation?.id || null;
   $("#umlInspectorEmpty").hidden = Boolean(klass || relation);
   $("#umlClassFields").hidden = !klass;
   $("#umlRelationFields").hidden = !relation;
-  $("#umlDelete").disabled = !klass && !relation;
+  $("#umlDelete").disabled = !klass && (!relation || relation.auto);
   $("#umlExportNs").disabled = !umlState.classes.length;
   if (klass) {
     $("#umlClassName").value = klass.name;
@@ -174,7 +242,15 @@ function renderUmlSelection() {
   }
   if (relation) {
     $("#umlSelectedRelationType").value = relation.type;
-    $("#umlRelationLabel").value = relation.label;
+    $("#umlSelectedRelationType").disabled = false;
+    $("#umlRelationMultiplicityField").hidden = relation.type !== "association";
+    $("#umlRelationMultiplicity").value = umlMultiplicity(relation);
+    $("#umlRelationPropertyField").hidden = !attributes.length;
+    if (relationChanged || document.activeElement !== $("#umlRelationProperty")) $("#umlRelationProperty").value = attributes.map((item) => item.name).join(", ");
+    $("#umlRelationPropertyTypeField").hidden = !attributes.length;
+    $("#umlRelationPropertyType").value = attributes.map((item) => item.type).join(", ");
+    $("#umlRelationLabelField").hidden = Boolean(relation.auto);
+    if (relationChanged || document.activeElement !== $("#umlRelationLabel")) $("#umlRelationLabel").value = relation.label;
   }
   $("#umlConnect").setAttribute("aria-pressed", umlConnecting);
   umlHintEl.textContent = umlConnecting
@@ -194,26 +270,21 @@ function umlSelect(kind, id) {
 }
 
 function umlSaveChange() {
-  renderUmlLines();
+  renderUml();
   scheduleAutoSave();
+}
+
+function umlPromoteInferredRelation(inferred) {
+  const relation = { id: umlNewId("relation"), from: inferred.from, to: inferred.to, type: inferred.type, multiplicity: "1", label: "", attributeIndex: inferred.attributeIndex };
+  umlState.relations.push(relation);
+  umlSelected = { kind: "relation", id: relation.id };
+  return relation;
 }
 
 function umlUpdateClassField(field, value) {
   const item = umlState.classes.find((node) => node.id === umlSelected?.id);
   if (!item) return;
   item[field] = value;
-  const el = [...umlClassesEl.children].find((node) => node.dataset.umlClass === item.id);
-  if (el) {
-    el.querySelector(".uml-class-title").textContent = item.name || "Sin nombre";
-    const sections = el.querySelectorAll(".uml-class-members");
-    if (field !== "name") {
-      const index = field === "attributes" ? 0 : 1;
-      sections[index].innerHTML = umlMemberLines(value).length
-        ? umlMemberLines(value).map((line, row) => `<div${index === 0 ? ` data-uml-attribute="${row}"` : ""}>${esc(line)}</div>`).join("")
-        : `<div class="uml-placeholder">${index === 0 ? "Atributos" : "Métodos"}</div>`;
-    }
-    el.setAttribute("aria-label", `Clase ${item.name}`);
-  }
   umlSaveChange();
 }
 
@@ -248,12 +319,45 @@ $("#umlAttributes").oninput = (e) => umlUpdateClassField("attributes", e.target.
 $("#umlMethods").oninput = (e) => umlUpdateClassField("methods", e.target.value);
 $("#umlSelectedRelationType").onchange = (e) => {
   const item = umlState.relations.find((relation) => relation.id === umlSelected?.id);
-  if (item) { item.type = e.target.value; umlSaveChange(); }
+  if (item) { item.type = e.target.value; umlSaveChange(); return; }
+  const inferred = umlInferredRelations().find((relation) => relation.id === umlSelected?.id);
+  if (!inferred) return;
+  const relation = umlPromoteInferredRelation(inferred);
+  relation.type = e.target.value;
+  umlSaveChange();
+};
+$("#umlRelationMultiplicity").onchange = (e) => {
+  let item = umlState.relations.find((relation) => relation.id === umlSelected?.id);
+  if (!item) {
+    const inferred = umlInferredRelations().find((relation) => relation.id === umlSelected?.id);
+    if (inferred) item = umlPromoteInferredRelation(inferred);
+  }
+  if (item && item.type === "association") {
+    item.multiplicity = umlMultiplicity({ multiplicity: e.target.value });
+    umlSaveChange();
+  }
 };
 $("#umlRelationLabel").oninput = (e) => {
   const item = umlState.relations.find((relation) => relation.id === umlSelected?.id);
   if (item) { item.label = e.target.value; umlSaveChange(); }
 };
+$("#umlRelationProperty").oninput = (e) => {
+  const relation = umlState.relations.find((item) => item.id === umlSelected?.id) || umlInferredRelations().find((item) => item.id === umlSelected?.id);
+  if (!relation) return;
+  const source = umlState.classes.find((item) => item.id === relation.from);
+  const target = umlState.classes.find((item) => item.id === relation.to);
+  if (!source || !target) return;
+  const attributes = umlLinkedAttributes(relation, source, target);
+  const names = e.target.value.split(",").map((name) => name.trim());
+  if (names.length !== attributes.length || !names.every((name) => /^[A-Za-z_$][\w$]*$/.test(name))) return;
+  const lines = umlMemberLines(source.attributes);
+  attributes.forEach((attribute, index) => {
+    lines[attribute.index] = lines[attribute.index].replace(/^([+\-#~]?\s*)[A-Za-z_$][\w$]*(\s*:)/, (_, prefix, suffix) => `${prefix}${names[index]}${suffix}`);
+  });
+  source.attributes = lines.join("\n");
+  umlSaveChange();
+};
+$("#umlRelationProperty").onblur = renderUmlSelection;
 
 umlCanvasEl.addEventListener("pointerdown", (event) => {
   const relation = event.target.closest("[data-uml-relation]");
@@ -268,7 +372,7 @@ umlCanvasEl.addEventListener("pointerdown", (event) => {
       renderUmlSelection();
       el.classList.add("connecting");
     } else if (umlConnectionStart !== item.id) {
-      const relation = { id: umlNewId("relation"), from: umlConnectionStart, to: item.id, type: $("#umlRelationType").value, label: "" };
+      const relation = { id: umlNewId("relation"), from: umlConnectionStart, to: item.id, type: $("#umlRelationType").value, multiplicity: "1", label: "" };
       umlState.relations.push(relation);
       umlConnectionStart = null;
       umlConnecting = false;
@@ -307,13 +411,13 @@ document.addEventListener("keydown", (event) => {
 
 function umlExportSvg() {
   const classSvg = umlState.classes.map((item) => {
-    const attrs = umlMemberLines(item.attributes), methods = umlMemberLines(item.methods);
+    const attrs = umlVisibleAttributes(item), methods = umlMemberLines(item.methods);
     const height = umlClassHeight(item), y1 = item.y + 40, y2 = y1 + Math.max(28, attrs.length * 22 + 12);
     const text = (lines, startY) => lines.map((line, index) => `<text x="${item.x + 12}" y="${startY + index * 22}" font-size="14" fill="#263247">${esc(line)}</text>`).join("");
     return `<g><rect x="${item.x}" y="${item.y}" width="${item.width}" height="${height}" fill="#fff" stroke="#364152" stroke-width="2"/><line x1="${item.x}" y1="${y1}" x2="${item.x + item.width}" y2="${y1}" stroke="#364152"/><line x1="${item.x}" y1="${y2}" x2="${item.x + item.width}" y2="${y2}" stroke="#364152"/><text x="${item.x + item.width / 2}" y="${item.y + 26}" text-anchor="middle" font-size="16" font-weight="bold" fill="#263247">${esc(item.name)}</text>${text(attrs, y1 + 21)}${text(methods, y2 + 21)}</g>`;
   }).join("");
   const relations = [...umlInferredRelations(), ...umlState.relations].map((item) => umlRelationSvg(item, false)).join("");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000"><style>:root{--uml-paper:#fff;--uml-ink:#364152}.uml-stroke{stroke:#364152;stroke-width:2;fill:none}.uml-auto .uml-stroke{stroke:#3858d6}.uml-line-label{font:13px Arial;fill:#263247;paint-order:stroke;stroke:#fff;stroke-width:5px}</style><rect width="1600" height="1000" fill="white"/>${umlMarkers()}${relations}${classSvg}</svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000"><style>:root{--uml-paper:#fff;--uml-ink:#364152;--uml-auto-ink:#3858d6}.uml-stroke{stroke:#364152;stroke-width:2;fill:none}.uml-auto .uml-stroke{stroke:#3858d6}.uml-line-label{font:13px Arial;fill:#263247;paint-order:stroke;stroke:#fff;stroke-width:5px}.uml-property-label,.uml-multiplicity{font-size:12px}.uml-multiplicity{font-weight:bold}.uml-auto .uml-line-label{fill:#3858d6}</style><rect width="1600" height="1000" fill="white"/>${umlMarkers()}${relations}${classSvg}</svg>`;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
   a.download = `${(projectName.value || "diagrama").replace(/[^a-z0-9_-]+/gi, "-")}-uml.svg`;
