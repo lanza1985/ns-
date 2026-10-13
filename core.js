@@ -104,9 +104,11 @@ function normalizeUmlState(value) {
   // Al restaurar, se descartan relaciones huérfanas y se acota el lienzo.
   const classes = Array.isArray(value?.classes) ? value.classes.filter((item) => item && typeof item.id === "string").map((item) => ({
     id: item.id,
+    kind: item.kind === "enum" ? "enum" : "class",
     name: String(item.name ?? "Clase"),
     attributes: String(item.attributes ?? ""),
     methods: String(item.methods ?? ""),
+    literals: String(item.literals ?? ""),
     x: Math.max(0, Math.min(1400, Number(item.x) || 0)),
     y: Math.max(0, Math.min(900, Number(item.y) || 0)),
     width: Math.max(170, Math.min(400, Number(item.width) || 220)),

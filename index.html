@@ -254,6 +254,7 @@
         <div class="uml-toolbar">
           <strong>Diagrama de clases</strong>
           <button id="umlAddClass" type="button">+ Clase</button>
+          <button id="umlAddEnum" type="button">+ Enum</button>
           <label>Relación
             <select id="umlRelationType">
               <option value="association">Asociación</option>
@@ -264,7 +265,7 @@
               <option value="dependency">Dependencia</option>
             </select>
           </label>
-          <button id="umlConnect" type="button" aria-pressed="false">Conectar clases</button>
+          <button id="umlConnect" type="button" aria-pressed="false">Conectar elementos</button>
           <button id="umlDelete" type="button" disabled>Eliminar selección</button>
           <button id="umlExportNs" type="button">Exportar a NS#</button>
           <button id="umlExport" type="button">Exportar SVG</button>
@@ -279,12 +280,14 @@
           </div>
           <aside class="uml-inspector">
             <h2>Propiedades</h2>
-            <p id="umlInspectorEmpty">Seleccioná una clase o una relación para editarla.</p>
+            <p id="umlInspectorEmpty">Seleccioná una clase, enum o relación para editarla.</p>
             <div id="umlClassFields" hidden>
-              <label>Nombre de la clase <input id="umlClassName" type="text" /></label>
-              <label>Atributos <textarea id="umlAttributes" rows="7" spellcheck="false" placeholder="+ nombre: Tipo&#10;- edad: Integer"></textarea></label>
-              <label>Métodos <textarea id="umlMethods" rows="7" spellcheck="false" placeholder="+ guardar(): void&#10;- validar(): Boolean"></textarea></label>
-              <small>Una línea por atributo o método. Usá + público, - privado, # protegido o ~ paquete. Si el tipo de un atributo coincide con otra clase, aparece una conexión azul y la flecha muestra nombre y tipo. Seleccioná la conexión para cambiar el tipo de relación.</small>
+              <label id="umlClassNameField">Nombre de la clase <input id="umlClassName" type="text" /></label>
+              <label id="umlLiteralsField" hidden>Valores del enum <textarea id="umlLiterals" rows="7" spellcheck="false" placeholder="PENDIENTE&#10;EN_CURSO&#10;TERMINADO"></textarea></label>
+              <label id="umlAttributesField">Atributos <textarea id="umlAttributes" rows="7" spellcheck="false" placeholder="+ nombre: Tipo&#10;- edad: Integer"></textarea></label>
+              <label id="umlMethodsField">Métodos <textarea id="umlMethods" rows="7" spellcheck="false" placeholder="+ guardar(): void&#10;- validar(): Boolean"></textarea></label>
+              <small id="umlClassHelp">Una línea por atributo o método. Usá + público, - privado, # protegido o ~ paquete. Si el tipo de un atributo coincide con otra clase, aparece una conexión azul y la flecha muestra nombre y tipo. Seleccioná la conexión para cambiar el tipo de relación.</small>
+              <small id="umlEnumHelp" hidden>Escribí un valor por línea. Los enums se conservan en UML y SVG; Exportar a NS# genera métodos sólo para clases.</small>
             </div>
             <div id="umlRelationFields" hidden>
               <label>Tipo <select id="umlSelectedRelationType">
@@ -330,7 +333,7 @@
     <dialog id="umlExportNsDialog" aria-labelledby="umlExportNsTitle" aria-describedby="umlExportNsWarning">
       <form method="dialog">
         <h2 id="umlExportNsTitle">Reemplazar el contenido de NS#</h2>
-        <p id="umlExportNsWarning">Todo lo que ya esté programado en NS# se eliminará. Se crearán de nuevo las clases, métodos y variables desde el diagrama UML. Esta acción no se puede deshacer.</p>
+        <p id="umlExportNsWarning">Todo lo que ya esté programado en NS# se eliminará. Se crearán de nuevo las clases, métodos y variables desde el diagrama UML. Los enums permanecen en UML y no generan código NS#. Esta acción no se puede deshacer.</p>
         <div>
           <button type="submit" value="cancel">Cancelar</button>
           <button type="submit" value="replace" class="danger-confirm">Eliminar y generar</button>

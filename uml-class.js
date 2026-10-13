@@ -52,6 +52,7 @@ function umlInferredRelations(classes = umlState.classes, manualRelations = umlS
   });
   const matches = [];
   classes.forEach((source) => {
+    if (source.kind === "enum") return;
     umlMemberLines(source.attributes).forEach((line, attributeIndex) => {
       const attribute = umlAttributeAt(source, attributeIndex);
       if (!attribute) return;
@@ -214,10 +215,11 @@ function umlClassHtml(item) {
     : `<div class="uml-placeholder">${emptyText}</div>`;
   const selected = umlSelected?.kind === "class" && umlSelected.id === item.id;
   const pending = umlConnectionStart === item.id;
-  return `<article class="uml-class${selected ? " selected" : ""}${pending ? " connecting" : ""}" data-uml-class="${esc(item.id)}" style="left:${item.x}px;top:${item.y}px;width:${item.width}px" tabindex="0" aria-label="Clase ${esc(item.name)}">
-    <header class="uml-class-title">${esc(item.name || "Sin nombre")}</header>
-    <div class="uml-class-members">${members(umlVisibleAttributes(item), "Atributos")}</div>
-    <div class="uml-class-members">${members(umlMemberLines(item.methods), "Métodos")}</div>
+  const isEnum = item.kind === "enum";
+  return `<article class="uml-class${isEnum ? " uml-enum" : ""}${selected ? " selected" : ""}${pending ? " connecting" : ""}" data-uml-class="${esc(item.id)}" style="left:${item.x}px;top:${item.y}px;width:${item.width}px" tabindex="0" aria-label="${isEnum ? "Enum" : "Clase"} ${esc(item.name)}">
+    <header class="uml-class-title">${isEnum ? '<span class="uml-stereotype">«enum»</span>' : ""}${esc(item.name || "Sin nombre")}</header>
+    <div class="uml-class-members">${members(isEnum ? umlMemberLines(item.literals) : umlVisibleAttributes(item), isEnum ? "Valores" : "Atributos")}</div>
+    ${isEnum ? "" : `<div class="uml-class-members">${members(umlMemberLines(item.methods), "Métodos")}</div>`}
     <span class="uml-resize" title="Cambiar ancho" aria-hidden="true"></span>
   </article>`;
 }
@@ -234,9 +236,17 @@ function renderUmlSelection() {
   $("#umlClassFields").hidden = !klass;
   $("#umlRelationFields").hidden = !relation;
   $("#umlDelete").disabled = !klass && (!relation || relation.auto);
-  $("#umlExportNs").disabled = !umlState.classes.length;
+  $("#umlExportNs").disabled = !umlState.classes.some((item) => item.kind !== "enum");
   if (klass) {
+    const isEnum = klass.kind === "enum";
+    $("#umlClassNameField").firstChild.textContent = isEnum ? "Nombre del enum " : "Nombre de la clase ";
+    $("#umlLiteralsField").hidden = !isEnum;
+    $("#umlAttributesField").hidden = isEnum;
+    $("#umlMethodsField").hidden = isEnum;
+    $("#umlClassHelp").hidden = isEnum;
+    $("#umlEnumHelp").hidden = !isEnum;
     $("#umlClassName").value = klass.name;
+    $("#umlLiterals").value = klass.literals || "";
     $("#umlAttributes").value = klass.attributes;
     $("#umlMethods").value = klass.methods;
   }
@@ -254,8 +264,8 @@ function renderUmlSelection() {
   }
   $("#umlConnect").setAttribute("aria-pressed", umlConnecting);
   umlHintEl.textContent = umlConnecting
-    ? umlConnectionStart ? "Elegí la segunda clase." : "Elegí la primera clase."
-    : umlState.classes.length ? "Arrastrá las clases para ordenarlas. Editá sus datos a la derecha." : "Agregá una clase para empezar.";
+    ? umlConnectionStart ? "Elegí el segundo elemento." : "Elegí el primer elemento."
+    : umlState.classes.length ? "Arrastrá los elementos para ordenarlos. Editá sus datos a la derecha." : "Agregá una clase o enum para empezar.";
 }
 
 function renderUml() {
@@ -291,12 +301,19 @@ function umlUpdateClassField(field, value) {
 $("#nsModeBtn").onclick = () => showEditorMode("ns");
 $("#umlModeBtn").onclick = () => showEditorMode("uml");
 $("#umlAddClass").onclick = () => {
+  umlAddNode("class");
+};
+$("#umlAddEnum").onclick = () => {
+  umlAddNode("enum");
+};
+function umlAddNode(kind) {
   const count = umlState.classes.length;
-  const item = { id: umlNewId("class"), name: `Clase${count + 1}`, attributes: "", methods: "", x: 100 + (count % 4) * 260, y: 100 + Math.floor(count / 4) * 230, width: 220 };
+  const number = umlState.classes.filter((item) => item.kind === kind || (kind === "class" && !item.kind)).length + 1;
+  const item = { id: umlNewId(kind), kind, name: `${kind === "enum" ? "Enum" : "Clase"}${number}`, attributes: "", methods: "", literals: "", x: 100 + (count % 4) * 260, y: 100 + Math.floor(count / 4) * 230, width: 220 };
   umlState.classes.push(item);
   umlSelect("class", item.id);
   scheduleAutoSave();
-};
+}
 $("#umlConnect").onclick = () => {
   umlConnecting = !umlConnecting;
   umlConnectionStart = null;
@@ -315,6 +332,7 @@ $("#umlDelete").onclick = () => {
   scheduleAutoSave();
 };
 $("#umlClassName").oninput = (e) => umlUpdateClassField("name", e.target.value);
+$("#umlLiterals").oninput = (e) => umlUpdateClassField("literals", e.target.value);
 $("#umlAttributes").oninput = (e) => umlUpdateClassField("attributes", e.target.value);
 $("#umlMethods").oninput = (e) => umlUpdateClassField("methods", e.target.value);
 $("#umlSelectedRelationType").onchange = (e) => {
@@ -411,10 +429,15 @@ document.addEventListener("keydown", (event) => {
 
 function umlExportSvg() {
   const classSvg = umlState.classes.map((item) => {
-    const attrs = umlVisibleAttributes(item), methods = umlMemberLines(item.methods);
-    const height = umlClassHeight(item), y1 = item.y + 40, y2 = y1 + Math.max(28, attrs.length * 22 + 12);
+    const isEnum = item.kind === "enum";
+    const attrs = isEnum ? umlMemberLines(item.literals) : umlVisibleAttributes(item);
+    const methods = isEnum ? [] : umlMemberLines(item.methods);
+    const height = umlClassHeight(item), y1 = item.y + (isEnum ? 58 : 40), y2 = y1 + Math.max(28, attrs.length * 22 + 12);
     const text = (lines, startY) => lines.map((line, index) => `<text x="${item.x + 12}" y="${startY + index * 22}" font-size="14" fill="#263247">${esc(line)}</text>`).join("");
-    return `<g><rect x="${item.x}" y="${item.y}" width="${item.width}" height="${height}" fill="#fff" stroke="#364152" stroke-width="2"/><line x1="${item.x}" y1="${y1}" x2="${item.x + item.width}" y2="${y1}" stroke="#364152"/><line x1="${item.x}" y1="${y2}" x2="${item.x + item.width}" y2="${y2}" stroke="#364152"/><text x="${item.x + item.width / 2}" y="${item.y + 26}" text-anchor="middle" font-size="16" font-weight="bold" fill="#263247">${esc(item.name)}</text>${text(attrs, y1 + 21)}${text(methods, y2 + 21)}</g>`;
+    const title = isEnum
+      ? `<text x="${item.x + item.width / 2}" y="${item.y + 19}" text-anchor="middle" font-size="12" fill="#263247">«enum»</text><text x="${item.x + item.width / 2}" y="${item.y + 41}" text-anchor="middle" font-size="16" font-weight="bold" fill="#263247">${esc(item.name)}</text>`
+      : `<text x="${item.x + item.width / 2}" y="${item.y + 26}" text-anchor="middle" font-size="16" font-weight="bold" fill="#263247">${esc(item.name)}</text>`;
+    return `<g><rect x="${item.x}" y="${item.y}" width="${item.width}" height="${height}" fill="#fff" stroke="#364152" stroke-width="2"/><line x1="${item.x}" y1="${y1}" x2="${item.x + item.width}" y2="${y1}" stroke="#364152"/>${isEnum ? "" : `<line x1="${item.x}" y1="${y2}" x2="${item.x + item.width}" y2="${y2}" stroke="#364152"/>`}${title}${text(attrs, y1 + 21)}${text(methods, y2 + 21)}</g>`;
   }).join("");
   const relations = [...umlInferredRelations(), ...umlState.relations].map((item) => umlRelationSvg(item, false)).join("");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000"><style>:root{--uml-paper:#fff;--uml-ink:#364152;--uml-auto-ink:#3858d6}.uml-stroke{stroke:#364152;stroke-width:2;fill:none}.uml-auto .uml-stroke{stroke:#3858d6}.uml-line-label{font:13px Arial;fill:#263247;paint-order:stroke;stroke:#fff;stroke-width:5px}.uml-property-label,.uml-multiplicity{font-size:12px}.uml-multiplicity{font-weight:bold}.uml-auto .uml-line-label{fill:#3858d6}</style><rect width="1600" height="1000" fill="white"/>${umlMarkers()}${relations}${classSvg}</svg>`;
@@ -478,10 +501,11 @@ function umlNsBlueprints() {
   umlState.classes.forEach((klass) => {
     const className = klass.name.trim();
     if (!className || seenNames.has(className)) {
-      errors.push(`Nombre de clase vacío o repetido: ${className || "(vacío)"}`);
+      errors.push(`Nombre de elemento vacío o repetido: ${className || "(vacío)"}`);
       return;
     }
     seenNames.add(className);
+    if (klass.kind === "enum") return;
     const attributes = umlMemberLines(klass.attributes).map((line) => {
       const result = umlNsAttribute(line);
       if (!result) errors.push(`${className}: atributo «${line}»`);
@@ -537,7 +561,7 @@ function umlReplaceNsFromUml(items, fields) {
 }
 
 function umlExportToNs() {
-  if (!umlState.classes.length) return;
+  if (!umlState.classes.some((item) => item.kind !== "enum")) return;
   const { items, errors, classFields } = umlNsBlueprints();
   if (errors.length) {
     umlHintEl.textContent = `Revisá ${errors[0]}`;

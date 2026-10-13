@@ -70,6 +70,12 @@ que están ejecutando.
   en el panel derecho; **Exportar SVG** descarga una imagen del diagrama.
   Las clases y relaciones se conservan en el autoguardado y en los archivos
   `.nsplus` creados por NS#.
+- **+ Enum** agrega una enumeración UML con el estereotipo `«enum»`.
+  Escribí un valor por línea en **Valores del enum**. Los enums se pueden mover,
+  conectar y exportar a SVG, y se conservan al guardar el proyecto. Al exportar
+  a NS#, sólo las clases generan métodos; los enums permanecen en el diagrama
+  UML y sus valores no se convierten en código ejecutable. Un atributo de clase
+  cuyo tipo coincide con un enum crea una relación automática hacia ese enum.
 - En **UML Clases**, escribí un miembro por línea. Un atributo puede ser
   `+ cliente: Cliente` o `- edad: Integer = 18`. Un método puede ser
   `+ guardar(cliente: Cliente): Boolean`; también se aceptan parámetros con el

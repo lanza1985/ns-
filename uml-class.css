@@ -15,7 +15,7 @@ body.uml-mode #main > :not(.uml-editor) { display: none !important; }
 .uml-toolbar button, .uml-toolbar select { border: 1px solid #cbd5e1; border-radius: 7px; padding: 8px 10px; background: white; color: #273655; cursor: pointer; font: inherit; font-size: 13px; }
 .uml-toolbar button:hover { border-color: #3858d6; background: #f1f4ff; }
 .uml-toolbar button:disabled { opacity: .5; cursor: default; }
-.uml-toolbar #umlAddClass, .uml-toolbar #umlConnect[aria-pressed="true"] { background: #3858d6; border-color: #3858d6; color: white; }
+.uml-toolbar #umlAddClass, .uml-toolbar #umlAddEnum, .uml-toolbar #umlConnect[aria-pressed="true"] { background: #3858d6; border-color: #3858d6; color: white; }
 .uml-toolbar #umlExportNs { background: #e9eeff; border-color: #afc0fa; color: #314dbd; font-weight: 700; }
 .uml-toolbar #umlExportNs:hover { background: #dce5ff; }
 .uml-toolbar label { font-size: 13px; display: flex; align-items: center; gap: 6px; }
@@ -38,6 +38,8 @@ body.uml-mode #main > :not(.uml-editor) { display: none !important; }
 .uml-class:active { cursor: grabbing; }
 .uml-class.selected, .uml-class.connecting { border-color: #3858d6; box-shadow: 0 0 0 3px #3858d635, 0 6px 18px #27365525; }
 .uml-class-title { min-height: 39px; display: grid; place-items: center; padding: 6px 10px; font-weight: bold; border-bottom: 1px solid #364152; background: #f8faff; overflow-wrap: anywhere; text-align: center; }
+.uml-enum .uml-class-title { min-height: 57px; align-content: center; }
+.uml-stereotype { display: block; font-size: 12px; font-weight: normal; line-height: 18px; }
 .uml-class-members { min-height: 29px; border-bottom: 1px solid #364152; padding: 5px 10px; font: 14px/22px Arial, sans-serif; overflow-wrap: anywhere; white-space: pre-wrap; }
 .uml-class-members:last-of-type { border-bottom: 0; }
 .uml-placeholder { color: #a3afbf; font-style: italic; }
@@ -55,7 +57,7 @@ body.uml-mode #main > :not(.uml-editor) { display: none !important; }
 .dark-theme .uml-viewport { background-color: #111827; background-image: radial-gradient(#334155 1px, transparent 1px); }
 .dark-theme .uml-toolbar button, .dark-theme .uml-toolbar select, .dark-theme .uml-inspector input, .dark-theme .uml-inspector textarea, .dark-theme .uml-inspector select { background: #202b3d; color: #e2e8f0; border-color: #475569; }
 .dark-theme .uml-inspector input[readonly] { background: #172132; color: #cbd5e1; }
-.dark-theme .uml-toolbar #umlAddClass, .dark-theme .uml-toolbar #umlConnect[aria-pressed="true"] { background: #3858d6; color: white; }
+.dark-theme .uml-toolbar #umlAddClass, .dark-theme .uml-toolbar #umlAddEnum, .dark-theme .uml-toolbar #umlConnect[aria-pressed="true"] { background: #3858d6; color: white; }
 .dark-theme .uml-toolbar #umlExportNs { background: #283b74; color: #dce5ff; }
 .dark-theme .uml-class { background: #202b3d; color: #e2e8f0; border-color: #94a3b8; }
 .dark-theme .uml-class-title { background: #293449; border-color: #94a3b8; }
