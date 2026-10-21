@@ -134,6 +134,15 @@ function executeInstruction(vars, code, instance, allowAsync = true) {
     return assignTo(vars, statement, instance, allowAsync);
   }
   if (/^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)+\s*\(.*\)$/.test(statement)) {
+    const access = statement.match(/^([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\.\s*[A-Za-z_$][\w$]*\s*\(/);
+    const Constructor = access && runner?.classConstructors?.[access[1]];
+    if (Constructor && Constructor[access[2]] == null) {
+      const [className, fieldName] = access.slice(1);
+      const field = (classDeclarations[className] || []).find((item) => item.name === fieldName);
+      if (!field) throw Error(`${className}.${fieldName} no existe. Agregá la variable en Variables de clase · ${className}`);
+      if (!field.isStatic) throw Error(`${className}.${fieldName} pertenece a cada objeto. Marcá static para acceder desde la clase`);
+      throw Error(`${className}.${fieldName} no está inicializada. Elegí Inicializada y asigná un valor`);
+    }
     const result = evaluateWith(vars, statement, instance);
     if (result instanceof Promise && !allowAsync) throw Error("El constructor no admite llamadas asíncronas");
     return result;
@@ -587,8 +596,9 @@ function out(v, cls = "") {
   console.scrollTop = console.scrollHeight;
 }
 function state(x) {
-  status.textContent = x;
-  status.className =
+  const statusElement = $("#status");
+  statusElement.textContent = x;
+  statusElement.className =
     "status " +
     ({
       Listo: "ready",

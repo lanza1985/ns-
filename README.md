@@ -50,7 +50,7 @@ controles de bloques.
 
 ## Versión
 
-La versión actual es **v1.1.28** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.29** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -155,6 +155,8 @@ que están ejecutando.
   de **Constante**; para una lista modificable, elegí **Inicializada** y usá
   `new ArrayList<Persona>()`. Una llamada como
   `Persona.personas.add(new Persona(18));` funciona en un bloque de instrucción.
+  Si un acceso de ese tipo falla, el error indica si el atributo no existe,
+  pertenece a una instancia o todavía no tiene un valor inicial.
 - `blocks` contiene las instrucciones del diagrama activo.
 - Los bloques `if`, `switch` y los bucles pueden contener otros bloques.
 - `declarations` guarda parámetros, constantes y variables del método.

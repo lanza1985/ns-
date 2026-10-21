@@ -28,8 +28,8 @@
       storage: localStorage.getItem(LOCAL_STORAGE_KEY),
       theme: localStorage.getItem("ns-theme"),
       consoleHtml: document.querySelector("#console").innerHTML,
-      status: status.textContent,
-      statusClass: status.className,
+      status: $("#status").textContent,
+      statusClass: $("#status").className,
       toastText: toastEl.textContent,
       toastClass: toastEl.className,
       runtimeOpen: runtimePanel.classList.contains("open"),
@@ -78,8 +78,8 @@
       clearTimeout(autoSaveTimer);
       autoSaveTimer = null;
       document.querySelector("#console").innerHTML = saved.consoleHtml;
-      status.textContent = saved.status;
-      status.className = saved.statusClass;
+      $("#status").textContent = saved.status;
+      $("#status").className = saved.statusClass;
       toastEl.textContent = saved.toastText;
       toastEl.className = saved.toastClass;
       runtimePanel.classList.toggle("open", saved.runtimeOpen);
@@ -236,7 +236,7 @@
       await start(false);
       for (let count = 0; runner && !runner.done && count < 25; count++) await advance();
       check(runner?.done, "El programa no finalizó");
-      check(status.textContent !== "Error", document.querySelector("#console").textContent);
+      check($("#status").textContent !== "Error", document.querySelector("#console").textContent);
       equal(runner.vars.primero, "Ana");
       equal(runner.vars.nombres.get(1), "Lu");
       equal(runner.vars.nombres.size(), 2);
@@ -273,7 +273,7 @@
       equal(callValidationError("Persona.personas.add(new Persona(2));"), "");
       await start(false);
       for (let count = 0; runner && !runner.done && count < 15; count++) await advance();
-      check(status.textContent !== "Error", document.querySelector("#console").textContent);
+      check($("#status").textContent !== "Error", document.querySelector("#console").textContent);
       check(runner?.done, "El programa no finalizó");
       equal(runner.classConstructors.Persona.personas.size(), 2);
       equal(runner.classConstructors.Persona.personas.get(0).numero, 2);
@@ -281,6 +281,24 @@
       equal(runner.vars.persona.numero, 4);
       equal(runner.vars.primera.numero, 2);
       equal(runner.vars.resultado, 4);
+    })],
+    ["El acceso a una lista de clase indica si falta static", () => withTemporaryProject(async () => {
+      useDiagrams([
+        fixtureDiagram([{ id: 1000, type: "instruction", code: "Persona.personas.add(2);" }]),
+        { id: "test-persona", method: { className: "Persona", modifiers: "public", returnType: "void", name: "otro" }, declarations: [], blocks: [] },
+      ], "test-main");
+      classDeclarations = normalizeClassDeclarations({ Persona: [
+        { kind: "declare", dataType: "List<Integer>", name: "personas", expression: "new ArrayList<Integer>()" },
+      ] });
+      render();
+      await start(false);
+      equal($("#status").textContent, "Error");
+      check(document.querySelector("#console").textContent.includes("Marcá static"), "No se explicó el atributo de instancia");
+      classDeclarations.Persona[0].isStatic = true;
+      await start(false);
+      await advance();
+      equal($("#status").textContent, "Listo");
+      equal(runner.classConstructors.Persona.personas.get(0), 2);
     })],
     ["El botón Constructor crea una firma sin tipo de retorno", () => withTemporaryProject(() => {
       document.querySelector("[data-add-constructor]").click();
