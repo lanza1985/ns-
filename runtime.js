@@ -131,6 +131,46 @@ function assign(code) {
 }
 
 const variableInstances = new WeakMap();
+// Implementa las operaciones habituales de java.util.ArrayList sin exponer
+// métodos mutadores de Array que tienen resultados distintos en Java.
+class JavaArrayList {
+  constructor() { this.items = []; }
+  add(indexOrValue, value) {
+    if (arguments.length === 1) { this.items.push(indexOrValue); return true; }
+    this.checkIndex(indexOrValue, true);
+    this.items.splice(indexOrValue, 0, value);
+  }
+  get(index) { this.checkIndex(index); return this.items[index]; }
+  set(index, value) { this.checkIndex(index); return this.items.splice(index, 1, value)[0]; }
+  remove(indexOrValue) {
+    if (Number.isInteger(indexOrValue)) {
+      this.checkIndex(indexOrValue);
+      return this.items.splice(indexOrValue, 1)[0];
+    }
+    const index = this.items.indexOf(indexOrValue);
+    if (index < 0) return false;
+    this.items.splice(index, 1);
+    return true;
+  }
+  size() { return this.items.length; }
+  isEmpty() { return this.items.length === 0; }
+  contains(value) { return this.items.includes(value); }
+  indexOf(value) { return this.items.indexOf(value); }
+  clear() { this.items.length = 0; }
+  toString() { return `[${this.items.map((value) => String(value)).join(", ")}]`; }
+  [Symbol.iterator]() { return this.items[Symbol.iterator](); }
+  checkIndex(index, allowEnd = false) {
+    if (!Number.isInteger(index) || index < 0 || index >= this.items.length + Number(allowEnd))
+      throw Error(`Índice fuera de rango: ${index}`);
+  }
+}
+
+function javaExpression(source) {
+  // El tipo genérico sólo sirve para documentar el elemento; JavaScript no lo
+  // acepta en una expresión new. El constructor admite también la forma simple.
+  return String(source ?? "").replace(/\bnew\s+ArrayList\s*<\s*[A-Za-z_$][\w$]*(?:\s*\[\s*\])?\s*>\s*\(/g, "new ArrayList(")
+    .replace(/\bnew\s+ArrayList\s*<\s*>\s*\(/g, "new ArrayList(");
+}
 function evaluateWith(vars, source, instance) {
   instance ||= variableInstances.get(vars);
   const entries = Object.entries(vars).filter(
@@ -138,7 +178,8 @@ function evaluateWith(vars, source, instance) {
   );
   for (const [name, constructor] of Object.entries(runner?.classConstructors || {}))
     if (JS_IDENTIFIER.test(name) && !JS_RESERVED_WORDS.has(name) && !entries.some(([key]) => key === name)) entries.push([name, constructor]);
-  return Function(...entries.map(([name]) => name), `"use strict";return (${String(source ?? "")})`).call(instance, ...entries.map(([, value]) => value));
+  if (!entries.some(([name]) => name === "ArrayList")) entries.push(["ArrayList", JavaArrayList]);
+  return Function(...entries.map(([name]) => name), `"use strict";return (${javaExpression(source)})`).call(instance, ...entries.map(([, value]) => value));
 }
 
 function splitArguments(source) {
@@ -290,7 +331,18 @@ function callValidationError(code) {
   }
   const ownerType = className === "this"
     ? String(method.className ?? "").trim()
-    : declarations.find((item) => item.name === className)?.dataType;
+    : declarations.find((item) => item.name === className)?.dataType ||
+      (classDeclarations[String(method.className ?? "").trim() || "Sin clase"] || []).find((item) => item.name === className)?.dataType;
+  let assignedArrayList = false;
+  walk(blocks, (block) => {
+    if (block.type === "instruction" &&
+        new RegExp(`^\\s*${className}\\s*(?:=|←)\\s*new\\s+ArrayList\\s*(?:<[^>]*>)?\\s*\\(`).test(block.code))
+      assignedArrayList = true;
+    return false;
+  });
+  if (((ownerType && /^ArrayList(?:\s*<.*>)?$/.test(ownerType.trim())) || assignedArrayList ||
+       runner?.vars?.[className] instanceof JavaArrayList) &&
+      typeof JavaArrayList.prototype[methodName] === "function") return "";
   if (ownerType && diagrams.some((item) => String(item.method.className ?? "").trim() === ownerType && String(item.method.name ?? "").trim() === methodName)) return "";
   const nativeOwner = globalThis[className];
   if (nativeOwner && typeof nativeOwner[methodName] === "function") return "";
@@ -591,7 +643,7 @@ function start(auto) {
   }
   runner.auto = auto;
   state(auto ? "Ejecutando" : "Pausado");
-  advance();
+  return advance();
 }
 function finish() {
   runner.done = true;

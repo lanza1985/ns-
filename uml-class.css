@@ -41,6 +41,7 @@ body.uml-mode #main > :not(.uml-editor) { display: none !important; }
 .uml-enum .uml-class-title { min-height: 57px; align-content: center; }
 .uml-stereotype { display: block; font-size: 12px; font-weight: normal; line-height: 18px; }
 .uml-class-members { min-height: 29px; border-bottom: 1px solid #364152; padding: 5px 10px; font: 14px/22px Arial, sans-serif; overflow-wrap: anywhere; white-space: pre-wrap; }
+.uml-underlined-attribute { text-decoration: underline; }
 .uml-class-members:last-of-type { border-bottom: 0; }
 .uml-placeholder { color: #a3afbf; font-style: italic; }
 .uml-resize { position: absolute; right: 0; bottom: 0; width: 17px; height: 17px; cursor: ew-resize; background: linear-gradient(135deg, transparent 50%, #8190a7 50%); }

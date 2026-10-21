@@ -6,7 +6,7 @@ function renderVars() {
       : Object.entries(runner.vars)
           .map(
             ([k, v]) =>
-              `<div class="variable"><b>${esc(k)}</b><span>${esc(JSON.stringify(v))}</span></div>`,
+              `<div class="variable"><b>${esc(k)}</b><span>${esc(v instanceof JavaArrayList ? v.toString() : JSON.stringify(v))}</span></div>`,
           )
           .join("");
 }

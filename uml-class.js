@@ -35,11 +35,26 @@ function umlMemberLines(value) {
   return String(value || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
+function umlAttributeParts(line) {
+  const match = line.match(/^([+\-#~]?\s*)(_([A-Za-z_$][\w$]*?)_|([A-Za-z_$][\w$]*))(\s*:\s*)(.+)$/);
+  if (!match) return null;
+  return { prefix: match[1], name: match[3] || match[4], underlined: Boolean(match[3]), separator: match[5], remainder: match[6] };
+}
+
+function umlAttributeText(line, svg = false) {
+  const attribute = umlAttributeParts(line);
+  if (!attribute || !attribute.underlined) return esc(line);
+  const name = svg
+    ? `<tspan text-decoration="underline">${esc(attribute.name)}</tspan>`
+    : `<span class="uml-underlined-attribute">${esc(attribute.name)}</span>`;
+  return `${esc(attribute.prefix)}${name}${esc(attribute.separator + attribute.remainder)}`;
+}
+
 function umlAttributeAt(source, index) {
   const line = umlMemberLines(source.attributes)[index];
-  const declaration = line?.match(/^[+\-#~]?\s*([A-Za-z_$][\w$]*)\s*:\s*(.+)$/);
-  if (!declaration) return null;
-  return { name: declaration[1], type: declaration[2].split("=")[0].trim(), index };
+  const attribute = line && umlAttributeParts(line);
+  if (!attribute) return null;
+  return { name: attribute.name, type: attribute.remainder.split("=")[0].trim(), underlined: attribute.underlined, index };
 }
 
 // Las relaciones inferidas se calculan desde los atributos. Al cambiar su tipo,
@@ -67,7 +82,7 @@ function umlInferredRelations(classes = umlState.classes, manualRelations = umlS
           return samePair && (relation.attributeIndex === undefined || (relation.from === source.id && relation.attributeIndex === attributeIndex));
         });
         if (covered) return;
-        matches.push({ id: `auto-${source.id}-${attributeIndex}-${target.id}`, from: source.id, to: target.id, type: "association", multiplicity: "1", label: `${attribute.name}: ${attribute.type}`, attributeIndex, auto: true });
+        matches.push({ id: `auto-${source.id}-${attributeIndex}-${target.id}`, from: source.id, to: target.id, type: "association", multiplicity: "1", label: attribute.name, attributeIndex, auto: true });
       });
     });
   });
@@ -144,7 +159,13 @@ function umlLinkedAttributes(relation, from, to) {
 }
 
 function umlRelationAttributeName(relation, from, to) {
-  return umlLinkedAttributes(relation, from, to).map((item) => `${item.name}: ${item.type}`).join(", ");
+  return umlLinkedAttributes(relation, from, to).map((item) => item.name).join(", ");
+}
+
+function umlRelationAttributeSvg(relation, from, to) {
+  return umlLinkedAttributes(relation, from, to).map((item) =>
+    item.underlined ? `<tspan text-decoration="underline">${esc(item.name)}</tspan>` : esc(item.name)
+  ).join(", ");
 }
 
 function umlMultiplicity(item) {
@@ -176,7 +197,8 @@ function umlRelationSvg(item, interactive = true) {
     const direction = targetX > routeX ? 1 : -1;
     const anchor = direction > 0 ? "end" : "start";
     const labelText = item.auto ? item.label : item.label || umlRelationAttributeName(item, from, to);
-    const label = labelText ? `<text x="${targetX - direction * 38}" y="${targetY - 9}" text-anchor="${anchor}" class="uml-line-label uml-property-label">${esc(labelText)}</text>` : "";
+    const labelContent = item.auto ? umlRelationAttributeSvg(item, from, to) : item.label ? esc(item.label) : umlRelationAttributeSvg(item, from, to);
+    const label = labelText ? `<text x="${targetX - direction * 38}" y="${targetY - 9}" text-anchor="${anchor}" class="uml-line-label uml-property-label">${labelContent}</text>` : "";
     const multiplicity = `<text x="${targetX - direction * 8}" y="${targetY - 9}" text-anchor="${anchor}" class="uml-line-label uml-multiplicity">${umlMultiplicity(item)}</text>`;
     const selected = umlSelected?.kind === "relation" && umlSelected.id === item.id;
     return `<g class="uml-relation uml-auto${selected ? " selected" : ""}"${interactive ? ` data-uml-relation="${esc(item.id)}"` : ""}><path d="M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}" class="uml-stroke" marker-end="url(#umlAutoArrow)"/>${interactive ? `<path d="M ${sourceX} ${sourceY} H ${routeX} V ${targetY} H ${targetX}" class="uml-hit"/>` : ""}${label}${multiplicity}</g>`;
@@ -187,7 +209,8 @@ function umlRelationSvg(item, interactive = true) {
   const start = item.type === "aggregation" ? ' marker-start="url(#umlDiamond)"' : item.type === "composition" ? ' marker-start="url(#umlDiamondFilled)"' : "";
   const selected = umlSelected?.kind === "relation" && umlSelected.id === item.id;
   const labelText = item.label || umlRelationAttributeName(item, from, to);
-  const label = labelText ? `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 9}" text-anchor="middle" class="uml-line-label">${esc(labelText)}</text>` : "";
+  const labelContent = item.label ? esc(item.label) : umlRelationAttributeSvg(item, from, to);
+  const label = labelText ? `<text x="${(x1 + x2) / 2}" y="${(y1 + y2) / 2 - 9}" text-anchor="middle" class="uml-line-label">${labelContent}</text>` : "";
   const distance = Math.hypot(x2 - x1, y2 - y1) || 1;
   const multiplicity = item.type === "association"
     ? `<text x="${x2 - (x2 - x1) / distance * 22}" y="${y2 - (y2 - y1) / distance * 22 - 9}" text-anchor="middle" class="uml-line-label uml-multiplicity">${umlMultiplicity(item)}</text>`
@@ -210,15 +233,15 @@ function renderUmlLines() {
 }
 
 function umlClassHtml(item) {
-  const members = (lines, emptyText) => lines.length
-    ? lines.map((line) => `<div>${esc(line)}</div>`).join("")
+  const members = (lines, emptyText, attribute = false) => lines.length
+    ? lines.map((line) => `<div>${attribute ? umlAttributeText(line) : esc(line)}</div>`).join("")
     : `<div class="uml-placeholder">${emptyText}</div>`;
   const selected = umlSelected?.kind === "class" && umlSelected.id === item.id;
   const pending = umlConnectionStart === item.id;
   const isEnum = item.kind === "enum";
   return `<article class="uml-class${isEnum ? " uml-enum" : ""}${selected ? " selected" : ""}${pending ? " connecting" : ""}" data-uml-class="${esc(item.id)}" style="left:${item.x}px;top:${item.y}px;width:${item.width}px" tabindex="0" aria-label="${isEnum ? "Enum" : "Clase"} ${esc(item.name)}">
     <header class="uml-class-title">${isEnum ? '<span class="uml-stereotype">«enum»</span>' : ""}${esc(item.name || "Sin nombre")}</header>
-    <div class="uml-class-members">${members(isEnum ? umlMemberLines(item.literals) : umlVisibleAttributes(item), isEnum ? "Valores" : "Atributos")}</div>
+    <div class="uml-class-members">${members(isEnum ? umlMemberLines(item.literals) : umlVisibleAttributes(item), isEnum ? "Valores" : "Atributos", !isEnum)}</div>
     ${isEnum ? "" : `<div class="uml-class-members">${members(umlMemberLines(item.methods), "Métodos")}</div>`}
     <span class="uml-resize" title="Cambiar ancho" aria-hidden="true"></span>
   </article>`;
@@ -370,7 +393,8 @@ $("#umlRelationProperty").oninput = (e) => {
   if (names.length !== attributes.length || !names.every((name) => /^[A-Za-z_$][\w$]*$/.test(name))) return;
   const lines = umlMemberLines(source.attributes);
   attributes.forEach((attribute, index) => {
-    lines[attribute.index] = lines[attribute.index].replace(/^([+\-#~]?\s*)[A-Za-z_$][\w$]*(\s*:)/, (_, prefix, suffix) => `${prefix}${names[index]}${suffix}`);
+    const parts = umlAttributeParts(lines[attribute.index]);
+    if (parts) lines[attribute.index] = `${parts.prefix}${parts.underlined ? `_${names[index]}_` : names[index]}${parts.separator}${parts.remainder}`;
   });
   source.attributes = lines.join("\n");
   umlSaveChange();
@@ -433,11 +457,11 @@ function umlExportSvg() {
     const attrs = isEnum ? umlMemberLines(item.literals) : umlVisibleAttributes(item);
     const methods = isEnum ? [] : umlMemberLines(item.methods);
     const height = umlClassHeight(item), y1 = item.y + (isEnum ? 58 : 40), y2 = y1 + Math.max(28, attrs.length * 22 + 12);
-    const text = (lines, startY) => lines.map((line, index) => `<text x="${item.x + 12}" y="${startY + index * 22}" font-size="14" fill="#263247">${esc(line)}</text>`).join("");
+    const text = (lines, startY, attribute = false) => lines.map((line, index) => `<text x="${item.x + 12}" y="${startY + index * 22}" font-size="14" fill="#263247">${attribute ? umlAttributeText(line, true) : esc(line)}</text>`).join("");
     const title = isEnum
       ? `<text x="${item.x + item.width / 2}" y="${item.y + 19}" text-anchor="middle" font-size="12" fill="#263247">«enum»</text><text x="${item.x + item.width / 2}" y="${item.y + 41}" text-anchor="middle" font-size="16" font-weight="bold" fill="#263247">${esc(item.name)}</text>`
       : `<text x="${item.x + item.width / 2}" y="${item.y + 26}" text-anchor="middle" font-size="16" font-weight="bold" fill="#263247">${esc(item.name)}</text>`;
-    return `<g><rect x="${item.x}" y="${item.y}" width="${item.width}" height="${height}" fill="#fff" stroke="#364152" stroke-width="2"/><line x1="${item.x}" y1="${y1}" x2="${item.x + item.width}" y2="${y1}" stroke="#364152"/>${isEnum ? "" : `<line x1="${item.x}" y1="${y2}" x2="${item.x + item.width}" y2="${y2}" stroke="#364152"/>`}${title}${text(attrs, y1 + 21)}${text(methods, y2 + 21)}</g>`;
+    return `<g><rect x="${item.x}" y="${item.y}" width="${item.width}" height="${height}" fill="#fff" stroke="#364152" stroke-width="2"/><line x1="${item.x}" y1="${y1}" x2="${item.x + item.width}" y2="${y1}" stroke="#364152"/>${isEnum ? "" : `<line x1="${item.x}" y1="${y2}" x2="${item.x + item.width}" y2="${y2}" stroke="#364152"/>`}${title}${text(attrs, y1 + 21, !isEnum)}${text(methods, y2 + 21)}</g>`;
   }).join("");
   const relations = [...umlInferredRelations(), ...umlState.relations].map((item) => umlRelationSvg(item, false)).join("");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000"><style>:root{--uml-paper:#fff;--uml-ink:#364152;--uml-auto-ink:#3858d6}.uml-stroke{stroke:#364152;stroke-width:2;fill:none}.uml-auto .uml-stroke{stroke:#3858d6}.uml-line-label{font:13px Arial;fill:#263247;paint-order:stroke;stroke:#fff;stroke-width:5px}.uml-property-label,.uml-multiplicity{font-size:12px}.uml-multiplicity{font-weight:bold}.uml-auto .uml-line-label{fill:#3858d6}</style><rect width="1600" height="1000" fill="white"/>${umlMarkers()}${relations}${classSvg}</svg>`;
@@ -466,12 +490,13 @@ function umlSplitParameters(value) {
 }
 
 function umlNsAttribute(line) {
-  const match = line.match(/^[+\-#~]?\s*([A-Za-z_$][\w$]*)\s*:\s*(.+?)(?:\s*=\s*(.+))?$/);
-  if (!match) return null;
-  const [, name, rawType, rawValue] = match;
+  const attribute = umlAttributeParts(line);
+  if (!attribute) return null;
+  const match = attribute.remainder.match(/^(.+?)(?:\s*=\s*(.+))?$/);
+  const [, rawType, rawValue] = match;
   const dataType = rawType.trim();
   if (!dataType) return null;
-  return { kind: rawValue === undefined ? "variable" : "declare", dataType, name, expression: rawValue?.trim() || "", umlGenerated: true };
+  return { kind: rawValue === undefined ? "variable" : "declare", dataType, name: attribute.name, expression: rawValue?.trim() || "", umlGenerated: true };
 }
 
 function umlNsMethod(line, className) {

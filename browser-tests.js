@@ -190,6 +190,61 @@
       check(document.querySelector("#console").textContent.includes("correcto"), "No salió la rama verdadera");
       check(!document.querySelector("#console").textContent.includes("incorrecto"), "Salió la rama incorrecta");
     })],
+    ["Las variables de clase comparten estado y permiten objetos", () => withTemporaryProject(async () => {
+      useDiagrams([
+        fixtureDiagram([
+          { id: 1000, type: "call", code: "Prueba.incrementar()" },
+          { id: 1001, type: "call", code: "Prueba.incrementar()" },
+          { id: 1002, type: "instruction", code: "otra = new Prueba()" },
+          { id: 1003, type: "instruction", code: "otra.contador = 9" },
+          { id: 1004, type: "call", code: "otra.incrementar()" },
+          { id: 1005, type: "output", expression: "contador" },
+        ]),
+        fixtureDiagram([
+          { id: 1006, type: "instruction", code: "contador = contador + 1" },
+          { id: 1007, type: "return", expression: "contador" },
+        ], [], "incrementar"),
+      ]);
+      classDeclarations = normalizeClassDeclarations({ Prueba: [{ kind: "declare", dataType: "Integer", name: "contador", expression: "0" }] });
+      render();
+      await start(false);
+      for (let count = 0; runner && !runner.done && count < 20; count++) await advance();
+      check(runner?.done, "El programa no finalizó");
+      equal(runner.vars.contador, 2);
+      equal(runner.vars.otra.contador, 10);
+    })],
+    ["ArrayList admite genéricos, métodos y PARA CADA", () => withTemporaryProject(async () => {
+      useDiagrams([fixtureDiagram([
+        { id: 1000, type: "call", code: 'nombres.add("Ana")' },
+        { id: 1001, type: "call", code: 'nombres.add("Luis")' },
+        { id: 1002, type: "instruction", code: 'primero = nombres.get(0)' },
+        { id: 1003, type: "foreach", dataType: "String", variable: "nombre", collection: "nombres", body: [
+          { id: 1004, type: "output", expression: "nombre" },
+        ] },
+        { id: 1005, type: "call", code: 'nombres.set(1, "Lu")' },
+        { id: 1006, type: "output", expression: "nombres.size()" },
+        { id: 1007, type: "instruction", code: "otraLista = new ArrayList<String>()" },
+        { id: 1008, type: "call", code: 'otraLista.add("X")' },
+      ])]);
+      classDeclarations = normalizeClassDeclarations({ Prueba: [{ kind: "declare", dataType: "ArrayList<String>", name: "nombres", expression: "new ArrayList<>()" }] });
+      render();
+      equal(callValidationError('nombres.add("Ana")'), "");
+      equal(callValidationError('otraLista.add("X")'), "");
+      await start(false);
+      for (let count = 0; runner && !runner.done && count < 25; count++) await advance();
+      check(runner?.done, "El programa no finalizó");
+      check(status.textContent !== "Error", document.querySelector("#console").textContent);
+      equal(runner.vars.primero, "Ana");
+      equal(runner.vars.nombres.get(1), "Lu");
+      equal(runner.vars.nombres.size(), 2);
+      equal(runner.vars.otraLista.get(0), "X");
+      check(runner.vars.nombres.contains("Lu"), "contains no encontró el elemento");
+      equal(runner.vars.nombres.remove(0), "Ana");
+      equal(runner.vars.nombres.size(), 1);
+      runner.vars.nombres.clear();
+      check(runner.vars.nombres.isEmpty(), "clear no vació la lista");
+      check(document.querySelector("#console").textContent.includes("Ana"), "PARA CADA no recorrió la lista");
+    })],
     ["Autoguardado restaura el proyecto y su nombre", () => withTemporaryProject(() => {
       useDiagrams([fixtureDiagram([{ id: 1000, type: "comment", text: "copia" }])]);
       projectName.value = "Proyecto recuperable";
@@ -213,6 +268,28 @@
       equal(diagrams[0].method.name, "saludar");
       equal(diagrams[0].declarations[0].name, "nombre");
       equal(classDeclarations.Persona[0].expression, "18");
+    })],
+    ["UML subraya nombres de atributos sin cambiar su nombre de NS#", () => withTemporaryProject(() => {
+      umlState = normalizeUmlState({ classes: [
+        { id: "a", name: "Persona", attributes: "+ _edad_: Integer\n+ _cliente_: Cliente\n+ _nota_: String", methods: "+ _guardar_(): void" },
+        { id: "b", name: "Cliente" },
+      ] });
+      const html = umlClassHtml(umlState.classes[0]);
+      check(html.includes('<span class="uml-underlined-attribute">edad</span>'), "El atributo visible no se subrayó");
+      check(html.includes("+ _guardar_(): void"), "El formato se aplicó a un método");
+      const relation = umlInferredRelations()[0];
+      equal(relation.label, "cliente");
+      showEditorMode("uml");
+      const relationSvg = umlRelationSvg(relation);
+      check(relationSvg.includes('<tspan text-decoration="underline">cliente</tspan>'), "La relación no subrayó el nombre");
+      check(!relationSvg.includes(": Cliente"), "La relación mostró el tipo del atributo");
+      const manualSvg = umlRelationSvg({ ...relation, id: "manual", auto: false, label: "" });
+      check(manualSvg.includes('<tspan text-decoration="underline">cliente</tspan>') && !manualSvg.includes(": Cliente"), "La relación manual mostró el tipo del atributo");
+      const blueprint = umlNsBlueprints();
+      equal(blueprint.classFields.Persona[0].name, "edad");
+      equal(blueprint.classFields.Persona[1].name, "cliente");
+      equal(umlAttributeText("+ _nota_: String", true), '+ <tspan text-decoration="underline">nota</tspan>: String');
+      equal(umlAttributeText("+ _pendiente: String"), "+ _pendiente: String");
     })],
     ["Los controles agregan, mueven y eliminan un bloque", () => withTemporaryProject(() => {
       useDiagrams([fixtureDiagram([{ id: 1000, type: "comment", text: "primero" }])]);

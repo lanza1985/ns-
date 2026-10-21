@@ -50,7 +50,7 @@ controles de bloques.
 
 ## Versión
 
-La versión actual es **v1.1.23** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.24** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -97,10 +97,13 @@ que están ejecutando.
 - Al escribir un atributo como `+ cliente: Cliente`, si existe una clase única
   llamada `Cliente`, aparece una asociación azul automáticamente. También se
   reconocen tipos como `Cliente[]` y `List<Cliente>`. La conexión muestra el
-  nombre y tipo del atributo y sigue sus cambios; una relación
+  nombre del atributo y sigue sus cambios; una relación
   dibujada manualmente entre las mismas clases tiene prioridad. La línea
   automática sale de la sección de atributos y llega al encabezado de la clase
   correspondiente.
+- Para subrayar sólo el nombre de un atributo en UML y en el SVG, escribilo
+  entre guiones bajos, por ejemplo `+ _edad_: Integer`. Al exportar a NS#,
+  el nombre del atributo será `edad`.
 - **Exportar a NS#** crea un diagrama por método UML, con parámetros en la
   firma y atributos en una sección única de variables de clase. Los atributos
   con valor inicial se convierten en variables inicializadas. Si una clase no
@@ -122,6 +125,13 @@ que están ejecutando.
   compartida. También podés crear instancias con `vehiculo = new Vehiculo()`,
   asignar propiedades con `vehiculo.color = "Red"` y llamar a sus métodos desde
   un bloque **Funciones / Métodos**, por ejemplo `vehiculo.setColor("Blue")`.
+- Las variables de clase pueden guardar objetos, por ejemplo una variable
+  inicializada de tipo `ArrayList<String>` con valor `new ArrayList<>()`.
+  En **Funciones / Métodos** se pueden llamar `lista.add(valor)`, `lista.get(i)`,
+  `lista.set(i, valor)`, `lista.remove(i)`, `lista.size()`, `lista.isEmpty()`,
+  `lista.contains(valor)` y `lista.clear()`. **PARA CADA** recorre la lista.
+  Los índices comienzan en 0. `remove` con un número elimina por índice;
+  con otro tipo de valor elimina la primera coincidencia.
 - `blocks` contiene las instrucciones del diagrama activo.
 - Los bloques `if`, `switch` y los bucles pueden contener otros bloques.
 - `declarations` guarda parámetros, constantes y variables del método.
