@@ -36,9 +36,9 @@ function umlMemberLines(value) {
 }
 
 function umlAttributeParts(line) {
-  const match = line.match(/^([+\-#~]?\s*)(_([A-Za-z_$][\w$]*?)_|([A-Za-z_$][\w$]*))(\s*:\s*)(.+)$/);
+  const match = line.match(/^([+\-#~]?\s*(static\s+)?)(_([A-Za-z_$][\w$]*?)_|([A-Za-z_$][\w$]*))(\s*:\s*)(.+)$/);
   if (!match) return null;
-  return { prefix: match[1], name: match[3] || match[4], underlined: Boolean(match[3]), separator: match[5], remainder: match[6] };
+  return { prefix: match[1], isStatic: Boolean(match[2]), name: match[4] || match[5], underlined: Boolean(match[4]), separator: match[6], remainder: match[7] };
 }
 
 function umlAttributeText(line, svg = false) {
@@ -496,7 +496,7 @@ function umlNsAttribute(line) {
   const [, rawType, rawValue] = match;
   const dataType = rawType.trim();
   if (!dataType) return null;
-  return { kind: rawValue === undefined ? "variable" : "declare", dataType, name: attribute.name, expression: rawValue?.trim() || "", umlGenerated: true };
+  return { kind: rawValue === undefined ? "variable" : "declare", dataType, name: attribute.name, expression: rawValue?.trim() || "", isStatic: attribute.isStatic, umlGenerated: true };
 }
 
 function umlNsMethod(line, className) {
@@ -514,7 +514,7 @@ function umlNsMethod(line, className) {
   }
   const modifier = ({ "+": "public", "-": "private", "#": "protected", "~": "package" })[visibility] || "public";
   return {
-    method: { className, modifiers: `${modifier}${staticWord ? " static" : ""}`, returnType: (suffixType || prefixType || "void").trim(), name },
+    method: { className, modifiers: `${modifier}${staticWord ? " static" : ""}`, returnType: name === className ? "" : (suffixType || prefixType || "void").trim(), name },
     parameters,
   };
 }

@@ -50,7 +50,7 @@ controles de bloques.
 
 ## Versión
 
-La versión actual es **v1.1.24** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.25** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -132,6 +132,16 @@ que están ejecutando.
   `lista.contains(valor)` y `lista.clear()`. **PARA CADA** recorre la lista.
   Los índices comienzan en 0. `remove` con un número elimina por índice;
   con otro tipo de valor elimina la primera coincidencia.
+- **+ Constructor** crea un diagrama con el mismo nombre que la clase. Agregá
+  parámetros en sus declaraciones y usá bloques de instrucción para inicializar
+  atributos, por ejemplo `this.edad = edad`; se ejecuta al evaluar
+  `new Persona(18)`. Los constructores admiten instrucciones, condiciones y
+  bucles; no solicitan entrada interactiva ni llaman métodos asíncronos.
+  Marcá **static** junto a una variable de clase para acceder a ella como
+  `Persona.personas`, incluso desde otras clases. **static** es independiente
+  de **Constante**; para una lista modificable, elegí **Inicializada** y usá
+  `new ArrayList<Persona>()`. Una llamada como
+  `Persona.personas.add(new Persona(18));` funciona en un bloque de instrucción.
 - `blocks` contiene las instrucciones del diagrama activo.
 - Los bloques `if`, `switch` y los bucles pueden contener otros bloques.
 - `declarations` guarda parámetros, constantes y variables del método.

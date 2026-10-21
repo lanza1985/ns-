@@ -124,10 +124,12 @@
       equal(state.relations[0].type, "inheritance");
     }],
     ["Las declaraciones de clase omiten entradas inválidas", () => {
-      const normalized = normalizeClassDeclarations({ A: [{ kind: "constant", name: "PI", dataType: "Number", expression: "3.14" }, null, { name: "x", kind: "unknown" }] });
+      const normalized = normalizeClassDeclarations({ A: [{ kind: "constant", name: "PI", dataType: "Number", expression: "3.14", isStatic: true }, null, { name: "x", kind: "unknown" }] });
       equal(normalized.A.length, 2);
       equal(normalized.A[0].kind, "constant");
+      equal(normalized.A[0].isStatic, true);
       equal(normalized.A[1].kind, "variable");
+      equal(normalized.A[1].isStatic, false);
     }],
     ["El compilador enlaza las ramas de una condición", () => {
       const steps = compile([{ type: "if", condition: "true", then: [{ type: "output", expression: "1" }], else: [{ type: "output", expression: "2" }] }]);
@@ -155,7 +157,7 @@
         fixtureDiagram([{ id: 1000, type: "output", expression: '"Hola"' }]),
         fixtureDiagram([{ id: 1001, type: "return", expression: "7" }], [], "otro"),
       ], "test-otro");
-      classDeclarations = normalizeClassDeclarations({ Prueba: [{ kind: "variable", dataType: "Integer", name: "contador" }] });
+      classDeclarations = normalizeClassDeclarations({ Prueba: [{ kind: "variable", dataType: "Integer", name: "contador", isStatic: true }] });
       projectMeta = [{ d: "2026-01-01T00:00:00.000Z", i: { usr: "Anterior" } }];
       const file = createNsPlusFile();
       useDiagrams([fixtureDiagram()]);
@@ -166,6 +168,7 @@
       equal(diagrams[0].blocks[0].expression, '"Hola"');
       equal(diagrams[1].blocks[0].expression, "7");
       equal(classDeclarations.Prueba[0].name, "contador");
+      equal(classDeclarations.Prueba[0].isStatic, true);
       equal(projectMeta[0].i.usr, "Anterior");
       equal(projectMeta.length, 2);
     })],
@@ -182,7 +185,7 @@
       ]), fixtureDiagram([{ id: 1007, type: "return", expression: "n * 2" }], [
         { kind: "parameter", dataType: "Integer", name: "n", expression: "" },
       ], "duplicar")], "test-main");
-      start(false);
+      await start(false);
       for (let count = 0; runner && !runner.done && count < 30; count++) await advance();
       check(runner?.done, "El programa no finalizó");
       equal(runner.vars.total, 6);
@@ -245,6 +248,49 @@
       check(runner.vars.nombres.isEmpty(), "clear no vació la lista");
       check(document.querySelector("#console").textContent.includes("Ana"), "PARA CADA no recorrió la lista");
     })],
+    ["El constructor inicializa instancias y static comparte una lista", () => withTemporaryProject(async () => {
+      useDiagrams([
+        { id: "test-main", method: { className: "Test", modifiers: "public static", returnType: "void", name: "main" }, declarations: [], blocks: [
+          { id: 1000, type: "instruction", code: "Persona.personas.add(new Persona(2));" },
+          { id: 1001, type: "instruction", code: "Persona.personas.add(new Persona(3));" },
+          { id: 1002, type: "instruction", code: "persona = new Persona(4);" },
+          { id: 1003, type: "instruction", code: "primera = Persona.personas.get(0);" },
+          { id: 1004, type: "output", expression: "primera.numero" },
+          { id: 1007, type: "instruction", code: "resultado = persona.buscarPersona();" },
+        ] },
+        { id: "test-constructor", method: { className: "Persona", modifiers: "public", returnType: "", name: "Persona" }, declarations: [
+          { kind: "parameter", dataType: "Integer", name: "numero", expression: "" },
+        ], blocks: [{ id: 1005, type: "instruction", code: "this.numero = numero;" }] },
+        { id: "test-search", method: { className: "Persona", modifiers: "public", returnType: "Integer", name: "buscarPersona" }, declarations: [], blocks: [
+          { id: 1006, type: "return", expression: "this.numero" },
+        ] },
+      ], "test-main");
+      classDeclarations = normalizeClassDeclarations({ Persona: [
+        { kind: "declare", dataType: "List<Persona>", name: "personas", expression: "new ArrayList<Persona>()", isStatic: true },
+        { kind: "variable", dataType: "Integer", name: "numero" },
+      ] });
+      render();
+      equal(callValidationError("Persona.personas.add(new Persona(2));"), "");
+      await start(false);
+      for (let count = 0; runner && !runner.done && count < 15; count++) await advance();
+      check(status.textContent !== "Error", document.querySelector("#console").textContent);
+      check(runner?.done, "El programa no finalizó");
+      equal(runner.classConstructors.Persona.personas.size(), 2);
+      equal(runner.classConstructors.Persona.personas.get(0).numero, 2);
+      equal(runner.classConstructors.Persona.personas.get(1).numero, 3);
+      equal(runner.vars.persona.numero, 4);
+      equal(runner.vars.primera.numero, 2);
+      equal(runner.vars.resultado, 4);
+    })],
+    ["El botón Constructor crea una firma sin tipo de retorno", () => withTemporaryProject(() => {
+      document.querySelector("[data-add-constructor]").click();
+      equal(method.name, "Prueba");
+      equal(method.returnType, "");
+      check(!document.querySelector(`[data-method-diagram="${activeDiagramId}"] [data-method="returnType"]`), "El constructor muestra tipo de retorno");
+      document.querySelector("[data-add-class-variable]").click();
+      document.querySelector("[data-class-static]").click();
+      equal(classDeclarations.Prueba[0].isStatic, true);
+    })],
     ["Autoguardado restaura el proyecto y su nombre", () => withTemporaryProject(() => {
       useDiagrams([fixtureDiagram([{ id: 1000, type: "comment", text: "copia" }])]);
       projectName.value = "Proyecto recuperable";
@@ -268,6 +314,14 @@
       equal(diagrams[0].method.name, "saludar");
       equal(diagrams[0].declarations[0].name, "nombre");
       equal(classDeclarations.Persona[0].expression, "18");
+    })],
+    ["UML exporta atributos static y constructores", () => withTemporaryProject(() => {
+      umlState = normalizeUmlState({ classes: [{ id: "persona", name: "Persona", attributes: "+ static personas: List<Persona> = new ArrayList<Persona>()", methods: "+ Persona(numero: Integer)" }] });
+      const blueprint = umlNsBlueprints();
+      equal(blueprint.errors.length, 0);
+      equal(blueprint.classFields.Persona[0].isStatic, true);
+      equal(blueprint.items[0].method.name, "Persona");
+      equal(blueprint.items[0].method.returnType, "");
     })],
     ["UML subraya nombres de atributos sin cambiar su nombre de NS#", () => withTemporaryProject(() => {
       umlState = normalizeUmlState({ classes: [

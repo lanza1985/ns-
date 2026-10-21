@@ -1753,6 +1753,7 @@ footer b::after {
 .class-variables-list { display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 3px 14px 11px; }
 .class-variable-row { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 5px; min-height: 29px; font: 14px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace; }
 .class-variable-row select { max-width: 115px; border: 1px solid #cbd5e1; border-radius: 5px; background: #fff; color: #52637b; padding: 3px; font: 12px Arial, sans-serif; }
+.class-static-toggle { display: inline-flex; align-items: center; gap: 3px; color: #52637b; font: 12px Arial, sans-serif; }
 .class-variables-empty { color: #8995aa; font-size: 13px; }
 .dark-theme .class-variables { background: #1b2637; }
 .dark-theme .class-variables-head { color: #dce5ff; }

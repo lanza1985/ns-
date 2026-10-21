@@ -82,9 +82,10 @@ const empty = () =>
 function classDeclarationsHTML(className) {
   const fields = classDeclarations[className] || [];
   return `<section class="class-variables" data-class-name="${esc(className)}">
-    <div class="class-variables-head"><strong>Variables de clase · ${esc(className)}</strong><button type="button" data-add-class-variable>+ Variable</button></div>
+    <div class="class-variables-head"><strong>Variables de clase · ${esc(className)}</strong><div><button type="button" data-add-class-variable>+ Variable</button> <button type="button" data-add-constructor>+ Constructor</button></div></div>
     <div class="class-variables-list">${fields.length ? fields.map((item, index) => `<div class="class-variable-row">
       <select data-class-kind="${index}" aria-label="Tipo de variable ${esc(item.name)}"><option value="variable"${item.kind === "variable" ? " selected" : ""}>Variable</option><option value="declare"${item.kind === "declare" ? " selected" : ""}>Inicializada</option><option value="constant"${item.kind === "constant" ? " selected" : ""}>Constante</option></select>
+      <label class="class-static-toggle"><input type="checkbox" data-class-static="${index}"${item.isStatic ? " checked" : ""}> static</label>
       <span class="editable declaration-field" contenteditable="true" spellcheck="false" data-class-declaration="${index}" data-class-field="dataType">${esc(item.dataType)}</span>
       <span class="editable declaration-field" contenteditable="true" spellcheck="false" data-class-declaration="${index}" data-class-field="name">${esc(item.name)}</span>
       ${item.kind !== "variable" ? `← <span class="editable declaration-field" contenteditable="true" spellcheck="false" data-class-declaration="${index}" data-class-field="expression">${esc(item.expression)}</span>` : ""}
@@ -145,9 +146,22 @@ function activateDiagramContext(id) {
 function bindMethodSections() {
   $("[data-add-class-variable]").onclick = () => {
     const className = $(".class-variables").dataset.className;
-    (classDeclarations[className] ||= []).push({ kind: "variable", dataType: "Integer", name: "variable", expression: "" });
+    (classDeclarations[className] ||= []).push({ kind: "variable", dataType: "Integer", name: "variable", expression: "", isStatic: false });
     render();
   };
+  $("[data-add-constructor]").onclick = () => {
+    const className = $(".class-variables").dataset.className;
+    createDiagram(className);
+    method.name = className;
+    method.returnType = "";
+    render();
+  };
+  $$('[data-class-static]').forEach((checkbox) => {
+    checkbox.onchange = () => {
+      classDeclarations[checkbox.closest(".class-variables").dataset.className][Number(checkbox.dataset.classStatic)].isStatic = checkbox.checked;
+      render();
+    };
+  });
   $$('[data-class-kind]').forEach((select) => {
     select.onchange = () => {
       const fields = classDeclarations[select.closest(".class-variables").dataset.className];
@@ -299,7 +313,8 @@ function declarationHTML() {
       return `<div class="declaration-item local-declaration"><span class="declaration-drag">✥</span>${item.kind === "constant" ? "final " : ""}${declarationField(item.dataType, index, "dataType")} ${declarationField(item.name, index, "name")}${initialized ? ` ← ${declarationField(item.expression, index, "expression")}` : ""}<button class="remove-declaration" data-remove-declaration="${index}" title="Eliminar">×</button></div>`;
     })
     .join("");
-  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(method.modifiers, "modifiers")} ${field(method.returnType, "returnType")} ${field(method.name, "name")}(${parameters})</div></div><div class="declarations-area">${locals}</div>`;
+  const isConstructor = method.name.trim() === method.className.trim();
+  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(method.modifiers, "modifiers")} ${isConstructor ? "" : `${field(method.returnType, "returnType")} `}${field(method.name, "name")}(${parameters})</div></div><div class="declarations-area">${locals}</div>`;
 }
 // Recorre todos los bloques, incluso los que están dentro de if, switch y bucles.
 function walk(items, callback, parent = null, key = null) {
@@ -392,7 +407,10 @@ function bind() {
           const previousClassName = owner.method.className;
           diagrams
             .filter((item) => item.method.className === previousClassName)
-            .forEach((item) => (item.method.className = value));
+            .forEach((item) => {
+              if (item.method.name.trim() === previousClassName.trim()) item.method.name = value;
+              item.method.className = value;
+            });
           const oldKey = previousClassName.trim() || "Sin clase";
           const newKey = value.trim() || "Sin clase";
           if (oldKey !== newKey && classDeclarations[oldKey]) {

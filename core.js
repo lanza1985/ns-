@@ -12,7 +12,7 @@ const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 
 // Incrementar este número en cada cambio y mantenerlo visible en la interfaz.
-const APP_VERSION = "1.1.24";
+const APP_VERSION = "1.1.25";
 
 // Convierte caracteres especiales a HTML seguro antes de mostrarlos.
 const esc = (value) =>
@@ -78,6 +78,7 @@ function normalizeClassDeclarations(value) {
       dataType: String(item.dataType ?? "Object"),
       name: item.name,
       expression: String(item.expression ?? ""),
+      isStatic: item.isStatic === true,
     }));
   });
   return result;
@@ -91,7 +92,7 @@ function migrateGeneratedClassDeclarations() {
     if (!generated.length) return;
     const fields = classDeclarations[className] ||= [];
     generated.forEach((item) => {
-      if (!fields.some((field) => field.name === item.name)) fields.push({ kind: item.kind, dataType: item.dataType, name: item.name, expression: item.expression || "" });
+      if (!fields.some((field) => field.name === item.name)) fields.push({ kind: item.kind, dataType: item.dataType, name: item.name, expression: item.expression || "", isStatic: item.isStatic === true });
     });
     diagramItem.declarations = diagramItem.declarations.filter((item) => !generated.includes(item));
   });

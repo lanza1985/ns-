@@ -106,28 +106,39 @@ function condition(x) {
     throw Error('Usá "==" para comparar valores; "=" no es válido en una condición');
   return expr(x);
 }
-function assignTo(vars, code, instance) {
-  const m = String(code).match(/^\s*((?:[A-Za-z_$][\w$]*)(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*(?:=|←)\s*(.+)$/);
+function assignTo(vars, code, instance, allowAsync = true) {
+  const m = String(code).trim().replace(/;\s*$/, "").match(/^\s*((?:[A-Za-z_$][\w$]*)(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*(?:=|←)\s*(.+)$/);
   if (!m) throw Error("Se esperaba una asignación, por ejemplo: vehiculo.color = \"Red\"");
   const path = m[1].split(/\s*\.\s*/);
   if (path.length === 1 && path[0] === "this") throw Error("No se puede asignar a this");
   const value = evaluateWith(vars, m[2], instance);
-  if (path.length === 1 && path[0] !== "this") {
-    vars[path[0]] = value;
-    return;
-  }
-  const root = path.shift();
-  let object = root === "this" ? instance : vars[root];
-  for (const key of path.slice(0, -1)) {
-    if (object == null) throw Error(`No se puede acceder a ${key} de ${root}`);
-    object = object[key];
-  }
-  if (object == null) throw Error(`No se puede asignar una propiedad de ${root}`);
-  object[path[path.length - 1]] = value;
+  const store = (resolved) => {
+    if (path.length === 1) { vars[path[0]] = resolved; return resolved; }
+    const root = path.shift();
+    let object = root === "this" ? instance : (root in vars ? vars[root] : runner?.classConstructors?.[root]);
+    for (const key of path.slice(0, -1)) {
+      if (object == null) throw Error(`No se puede acceder a ${key} de ${root}`);
+      object = object[key];
+    }
+    if (object == null) throw Error(`No se puede asignar una propiedad de ${root}`);
+    object[path[path.length - 1]] = resolved;
+    return resolved;
+  };
+  if (value instanceof Promise && !allowAsync) throw Error("El constructor no admite llamadas asíncronas");
+  return value instanceof Promise ? value.then(store) : store(value);
 }
 
-function assign(code) {
-  assignTo(runner.vars, code, runner.classInstance);
+function executeInstruction(vars, code, instance, allowAsync = true) {
+  const statement = String(code).trim().replace(/;\s*$/, "");
+  if (/^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*(?:=|←)(?!=)/.test(statement)) {
+    return assignTo(vars, statement, instance, allowAsync);
+  }
+  if (/^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)+\s*\(.*\)$/.test(statement)) {
+    const result = evaluateWith(vars, statement, instance);
+    if (result instanceof Promise && !allowAsync) throw Error("El constructor no admite llamadas asíncronas");
+    return result;
+  }
+  throw Error('Se esperaba una asignación o llamada, por ejemplo: lista.add(valor)');
 }
 
 const variableInstances = new WeakMap();
@@ -304,7 +315,7 @@ function hideCallAutocomplete() {
 }
 
 function parseDiagramCall(code) {
-  return String(code).match(/^\s*(?:([A-Za-z_$][\w$]*)\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\((.*)\)\s*$/);
+  return String(code).match(/^\s*(?:([A-Za-z_$][\w$]*)\s*(?:=|←)\s*)?([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\((.*)\)\s*;?\s*$/);
 }
 
 function parameterCount(item) {
@@ -316,7 +327,14 @@ function parameterCount(item) {
 // error se vea antes de ejecutar el programa.
 function callValidationError(code) {
   const match = parseDiagramCall(code);
-  if (!match) return "Usá Clase.metodo(argumentos) en el bloque Funciones";
+  if (!match) {
+    const staticListCall = String(code).match(/^\s*([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\(.*\)\s*;?\s*$/);
+    const field = staticListCall && (classDeclarations[staticListCall[1]] || []).find((item) =>
+      item.name === staticListCall[2] && item.isStatic);
+    if (field && /^(?:ArrayList|List)(?:\s*<.*>)?$/.test(field.dataType.trim()) &&
+        typeof JavaArrayList.prototype[staticListCall[3]] === "function") return "";
+    return "Usá Clase.metodo(argumentos) en el bloque Funciones";
+  }
   const [, , className, methodName, argumentText] = match;
   const target = diagrams.find(
     (item) => String(item.method.className ?? "").trim() === className &&
@@ -340,7 +358,7 @@ function callValidationError(code) {
       assignedArrayList = true;
     return false;
   });
-  if (((ownerType && /^ArrayList(?:\s*<.*>)?$/.test(ownerType.trim())) || assignedArrayList ||
+  if (((ownerType && /^(?:ArrayList|List)(?:\s*<.*>)?$/.test(ownerType.trim())) || assignedArrayList ||
        runner?.vars?.[className] instanceof JavaArrayList) &&
       typeof JavaArrayList.prototype[methodName] === "function") return "";
   if (ownerType && diagrams.some((item) => String(item.method.className ?? "").trim() === ownerType && String(item.method.name ?? "").trim() === methodName)) return "";
@@ -399,25 +417,93 @@ function classScopeFor(className, scopes) {
   return scope;
 }
 
+function runConstructorDiagram(target, args, instance) {
+  const parameters = target.declarations.filter((item) => item.kind === "parameter");
+  const className = String(target.method.className ?? "").trim();
+  const vars = scopedVariables(className, instance,
+    Object.fromEntries(parameters.map((item, index) => [item.name, args[index]])),
+    new Set(target.declarations.map((item) => item.name)));
+  const value = (source) => {
+    const result = evaluateWith(vars, source, instance);
+    if (result instanceof Promise) throw Error(`Constructor ${className}: no se admiten llamadas asíncronas`);
+    return result;
+  };
+  for (const item of target.declarations.filter((item) => item.kind !== "parameter"))
+    vars[item.name] = ["declare", "constant"].includes(item.kind) ? value(item.expression) : undefined;
+  const steps = compile(target.blocks), loops = Object.create(null);
+  let pc = 0, guard = 0;
+  while (pc < steps.length) {
+    if (++guard > 10000) throw Error(`Constructor ${className}: demasiados pasos`);
+    const step = steps[pc], block = step.b;
+    if (["comment", "variable"].includes(step.kind)) pc++;
+    else if (step.kind === "instruction" || step.kind === "call") {
+      executeInstruction(vars, block.code, instance, false);
+      pc++;
+    } else if (["declare", "constant"].includes(step.kind)) { vars[block.name] = value(block.expression); pc++; }
+    else if (step.kind === "output") { out(value(block.expression)); pc++; }
+    else if (step.kind === "input" || step.kind === "parameter") throw Error(`Constructor ${className}: no se admite entrada interactiva`);
+    else if (step.kind === "return") throw Error(`Constructor ${className}: no debe devolver un valor`);
+    else if (step.kind === "if") pc = value(block.condition) ? pc + 1 : step.no;
+    else if (step.kind === "switch") pc = step.map[String(value(block.expression))] ?? step.fallback;
+    else if (step.kind === "while") pc = value(block.condition) ? pc + 1 : step.end;
+    else if (step.kind === "doWhile") pc = value(block.condition) ? step.to : pc + 1;
+    else if (step.kind === "jump") pc = step.to;
+    else if (step.kind === "forInit") {
+      const increment = Number(value(block.step));
+      if (!Number.isFinite(increment) || increment === 0) throw Error("El paso del PARA debe ser distinto de cero");
+      loops[block.id] = { end: Number(value(block.end)), step: increment };
+      vars[block.variable] = Number(value(block.start));
+      pc = ok(vars[block.variable], loops[block.id]) ? pc + 1 : step.end;
+    } else if (step.kind === "forNext") {
+      vars[block.variable] += loops[block.id].step;
+      pc = ok(vars[block.variable], loops[block.id]) ? step.to : step.end;
+    } else if (step.kind === "eachInit") {
+      const collection = value(block.collection);
+      if (!collection?.[Symbol.iterator]) throw Error("La colección no es iterable");
+      loops[block.id] = { values: [...collection], index: 0 };
+      if (loops[block.id].values.length) { vars[block.variable] = loops[block.id].values[0]; pc++; }
+      else pc = step.end;
+    } else if (step.kind === "eachNext") {
+      const loop = loops[block.id];
+      loop.index++;
+      if (loop.index < loop.values.length) { vars[block.variable] = loop.values[loop.index]; pc = step.to; }
+      else pc = step.end;
+    }
+  }
+}
+
 function createDiagramClasses() {
   const constructors = Object.create(null);
   const names = new Set(diagrams.map((item) => String(item.method.className ?? "").trim() || "Sin clase"));
   for (const className of names) {
     constructors[className] = class DiagramClass {
-      constructor() {
-        for (const item of classDeclarations[className] || [])
+      constructor(...args) {
+        for (const item of (classDeclarations[className] || []).filter((field) => !field.isStatic))
           this[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(this, item.expression, this) : undefined;
+        const constructorMethods = diagrams.filter((item) =>
+          String(item.method.className ?? "").trim() === className && String(item.method.name ?? "").trim() === className);
+        const selected = constructorMethods.find((item) => parameterCount(item) === args.length);
+        if (selected) runConstructorDiagram(selected, args, this);
+        else if (args.length || constructorMethods.length)
+          throw Error(`Constructor ${className}: no existe una versión con ${args.length} argumento(s)`);
       }
     };
   }
+  runner.classConstructors = constructors;
   for (const target of diagrams) {
     const className = String(target.method.className ?? "").trim() || "Sin clase";
     const name = String(target.method.name ?? "").trim();
-    if (!JS_IDENTIFIER.test(name) || JS_RESERVED_WORDS.has(name)) continue;
-    Object.defineProperty(constructors[className].prototype, name, {
+    if (!JS_IDENTIFIER.test(name) || JS_RESERVED_WORDS.has(name) || name === className) continue;
+    const owner = /\bstatic\b/.test(String(target.method.modifiers ?? "")) ? constructors[className] : constructors[className].prototype;
+    Object.defineProperty(owner, name, {
       configurable: true,
       value: async function (...args) { return runDiagramFunction(target, args, [target.id], this); },
     });
+  }
+  for (const className of names) {
+    const Constructor = constructors[className];
+    for (const item of (classDeclarations[className] || []).filter((field) => field.isStatic))
+      Constructor[item.name] = ["declare", "constant"].includes(item.kind) ? evaluateWith(Constructor, item.expression) : undefined;
   }
   return constructors;
 }
@@ -425,15 +511,22 @@ function createDiagramClasses() {
 function scopedVariables(className, scope, initial, shadowed) {
   // El Proxy redirige lecturas y escrituras de atributos al ámbito compartido.
   // Parámetros y variables locales con el mismo nombre quedan en este método.
-  const fields = new Set((classDeclarations[className] || []).map((item) => item.name));
-  const values = { ...scope, ...initial };
+  const fields = new Map((classDeclarations[className] || []).map((item) => [item.name, item]));
+  const Constructor = runner.classConstructors[className];
+  const values = Object.fromEntries([...fields].map(([name, item]) => [name, item.isStatic ? Constructor[name] : scope[name]]));
+  Object.assign(values, initial);
   const scoped = new Proxy(values, {
     get(target, key) {
-      return typeof key === "string" && fields.has(key) && !shadowed.has(key) ? scope[key] : target[key];
+      if (typeof key === "string" && fields.has(key) && !shadowed.has(key))
+        return fields.get(key).isStatic ? Constructor[key] : scope[key];
+      return target[key];
     },
     set(target, key, value) {
       target[key] = value;
-      if (typeof key === "string" && fields.has(key) && !shadowed.has(key)) scope[key] = value;
+      if (typeof key === "string" && fields.has(key) && !shadowed.has(key)) {
+        if (fields.get(key).isStatic) Constructor[key] = value;
+        else scope[key] = value;
+      }
       return true;
     },
   });
@@ -446,7 +539,8 @@ async function runDiagramFunction(target, args, callStack, instance) {
   if (args.length !== parameters.length)
     throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s); recibió ${args.length}`);
   const className = String(target.method.className ?? "").trim() || "Sin clase";
-  const scope = instance || classScopeFor(className, runner.classScopes);
+  const scope = instance || (/\bstatic\b/.test(String(target.method.modifiers ?? ""))
+    ? runner.classConstructors[className] : classScopeFor(className, runner.classScopes));
   const shadowed = new Set(target.declarations.map((item) => item.name));
   const vars = scopedVariables(className, scope, Object.fromEntries(parameters.map((item, index) => [item.name, args[index]])), shadowed);
   for (const item of target.declarations.filter((item) => item.kind !== "parameter"))
@@ -454,11 +548,14 @@ async function runDiagramFunction(target, args, callStack, instance) {
   const execute = async (items) => {
     for (const item of items) {
       if (item.type === "comment" || item.type === "variable") continue;
-      if (item.type === "instruction") assignTo(vars, item.code, scope);
+      if (item.type === "instruction") await executeInstruction(vars, item.code, scope);
       else if (["declare", "constant"].includes(item.type)) vars[item.name] = evaluateWith(vars, item.expression);
       else if (item.type === "output") out(evaluateWith(vars, item.expression));
       else if (item.type === "input") { const value = await ask(item); if (value === Symbol.for("cancel")) throw Error("Entrada cancelada"); vars[item.name] = parse(value); }
-      else if (item.type === "call") await executeDiagramCall(item.code, vars, callStack);
+      else if (item.type === "call") {
+        if (parseDiagramCall(item.code)) await executeDiagramCall(item.code, vars, callStack);
+        else await executeInstruction(vars, item.code, scope);
+      }
       else if (item.type === "return") return { returned: true, value: await evaluateFunctionValue(item.expression, vars, callStack) };
       else if (item.type === "if") { const result = await execute(evaluateWith(vars, item.condition) ? item.then : item.else); if (result?.returned) return result; }
       else if (item.type === "switch") {
@@ -519,7 +616,7 @@ async function advance() {
       runner.pc++;
     }
     else if (x.kind === "instruction") {
-      assign(b.code);
+      await executeInstruction(runner.vars, b.code, runner.classInstance);
       runner.pc++;
     } else if (["declare", "constant"].includes(x.kind)) {
       runner.vars[b.name] = expr(b.expression);
@@ -533,7 +630,8 @@ async function advance() {
       out(expr(b.expression));
       runner.pc++;
     } else if (x.kind === "call") {
-      await executeDiagramCall(b.code, runner.vars, runner.callStack);
+      if (parseDiagramCall(b.code)) await executeDiagramCall(b.code, runner.vars, runner.callStack);
+      else await executeInstruction(runner.vars, b.code, runner.classInstance);
       runner.pc++;
     } else if (x.kind === "return") {
       runner.returnValue = expr(b.expression);
@@ -637,9 +735,17 @@ function start(auto) {
       current: null,
       callStack: [activeDiagramId],
     };
-    runner.classConstructors = createDiagramClasses();
-    runner.classInstance = classScopeFor(className, classScopes);
-    runner.vars = scopedVariables(className, runner.classInstance, {}, new Set(declarations.map((item) => item.name)));
+    try {
+      runner.classConstructors = createDiagramClasses();
+      runner.classInstance = /\bstatic\b/.test(String(method.modifiers ?? ""))
+        ? runner.classConstructors[className] : classScopeFor(className, classScopes);
+      runner.vars = scopedVariables(className, runner.classInstance, {}, new Set(declarations.map((item) => item.name)));
+    } catch (error) {
+      runner.done = true;
+      out(`Error: ${error.message}`, "error");
+      state("Error");
+      return;
+    }
   }
   runner.auto = auto;
   state(auto ? "Ejecutando" : "Pausado");
