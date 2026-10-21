@@ -329,6 +329,33 @@
       add("declVariable");
       equal(diagrams[2].declarations.length, 1);
     })],
+    ["La casilla static convierte un método en método de clase", () => withTemporaryProject(async () => {
+      useDiagrams([
+        fixtureDiagram([{ id: 1000, type: "call", code: "resultado = Prueba.incrementar()" }]),
+        fixtureDiagram([
+          { id: 1001, type: "instruction", code: "contador = contador + 1" },
+          { id: 1002, type: "return", expression: "contador" },
+        ], [], "incrementar"),
+        fixtureDiagram([], [], "Prueba"),
+      ], "test-main");
+      classDeclarations = normalizeClassDeclarations({ Prueba: [
+        { kind: "declare", dataType: "Integer", name: "contador", expression: "0", isStatic: true },
+      ] });
+      render();
+      const section = () => document.querySelector('[data-method-diagram="test-incrementar"]');
+      check(!document.querySelector('[data-method-diagram="test-Prueba"] [data-method-static]'), "El constructor ofrece static");
+      section().querySelector("[data-method-static]").click();
+      equal(diagrams[1].method.modifiers, "public static");
+      check(section().querySelector("[data-method-static]").checked, "La casilla static perdió su estado");
+      equal(section().querySelector('[data-method="modifiers"]').textContent, "public");
+      await start(false);
+      await advance();
+      equal($("#status").textContent, "Listo");
+      equal(runner.classConstructors.Prueba.contador, 1);
+      equal(runner.vars.resultado, 1);
+      section().querySelector("[data-method-static]").click();
+      equal(diagrams[1].method.modifiers, "public");
+    })],
     ["Autoguardado restaura el proyecto y su nombre", () => withTemporaryProject(() => {
       useDiagrams([fixtureDiagram([{ id: 1000, type: "comment", text: "copia" }])]);
       projectName.value = "Proyecto recuperable";

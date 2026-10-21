@@ -674,6 +674,8 @@ body {
   padding-left: 28px;
   align-items: flex-start;
 }
+.method-static-toggle { display: inline-flex; align-items: center; gap: 3px; margin: 3px 6px 0; color: #52637b; font: 12px Arial, sans-serif; font-weight: normal; cursor: pointer; }
+.method-static-toggle input { margin: 0; }
 .method-declarations-menu { min-width: 155px; margin-left: auto; font: 12px Arial, sans-serif; font-weight: normal; }
 .method-declarations-menu summary, .method-single-declaration { list-style: none; border: 1px solid #b6c3de; border-radius: 6px; background: #fff; color: #3858d6; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
 .method-single-declaration { margin-left: auto; font: 12px Arial, sans-serif; }
@@ -1770,6 +1772,7 @@ footer b::after {
 .dark-theme .method-declarations-menu summary, .dark-theme .method-declarations-menu > div, .dark-theme .method-single-declaration { background: #263247; border-color: #475569; color: #dce5ff; }
 .dark-theme .method-declarations-menu button { color: #dce5ff; }
 .dark-theme .method-declarations-menu button:hover { background: #334155; }
+.dark-theme .method-static-toggle { color: #dce5ff; }
 
 footer #browserTestsBtn {
   margin-left: 14px;

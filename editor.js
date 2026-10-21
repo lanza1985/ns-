@@ -146,6 +146,15 @@ function activateDiagramContext(id) {
 }
 
 function bindMethodSections() {
+  $$('[data-method-static]').forEach((checkbox) => {
+    checkbox.onchange = () => {
+      const owner = diagrams.find((item) => item.id === checkbox.closest(".ns-method").dataset.methodDiagram);
+      if (!owner) return;
+      const modifiers = String(owner.method.modifiers ?? "").replace(/\bstatic\b/g, " ").replace(/\s+/g, " ").trim();
+      owner.method.modifiers = [modifiers, checkbox.checked ? "static" : ""].filter(Boolean).join(" ");
+      render();
+    };
+  });
   $("[data-add-class-variable]").onclick = () => {
     const className = $(".class-variables").dataset.className;
     (classDeclarations[className] ||= []).push({ kind: "variable", dataType: "Integer", name: "variable", expression: "", isStatic: false });
@@ -331,6 +340,10 @@ function declarationHTML() {
     })
     .join("");
   const isConstructor = method.name.trim() === method.className.trim();
+  const modifierText = String(method.modifiers ?? "");
+  const hasStatic = /\bstatic\b/.test(modifierText);
+  const visibleModifiers = isConstructor ? modifierText : modifierText.replace(/\bstatic\b/g, " ").replace(/\s+/g, " ").trim();
+  const staticControl = isConstructor ? "" : `<label class="method-static-toggle"><input type="checkbox" data-method-static${hasStatic ? " checked" : ""}> static</label>`;
   const declarationControl = isConstructor
     ? '<button type="button" class="method-single-declaration" data-add-method-declaration="parameter">+ Parámetro</button>'
     : `<details class="method-declarations-menu"><summary>+ Variable</summary><div>
@@ -339,7 +352,7 @@ function declarationHTML() {
         <button type="button" data-add-method-declaration="declare">Variable inicializada</button>
         <button type="button" data-add-method-declaration="constant">Constante</button>
       </div></details>`;
-  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(method.modifiers, "modifiers")} ${isConstructor ? "" : `${field(method.returnType, "returnType")} `}${field(method.name, "name")}(${parameters})${declarationControl}</div></div><div class="declarations-area">${locals}</div>`;
+  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(visibleModifiers, "modifiers")}${staticControl} ${isConstructor ? "" : `${field(method.returnType, "returnType")} `}${field(method.name, "name")}(${parameters})${declarationControl}</div></div><div class="declarations-area">${locals}</div>`;
 }
 // Recorre todos los bloques, incluso los que están dentro de if, switch y bucles.
 function walk(items, callback, parent = null, key = null) {
@@ -443,6 +456,10 @@ function bind() {
             classDeclarations[newKey] = [...existing, ...classDeclarations[oldKey].filter((variable) => !existing.some((other) => other.name === variable.name))];
             delete classDeclarations[oldKey];
           }
+        } else if (field === "modifiers" && owner.method.name.trim() !== owner.method.className.trim()) {
+          const isStatic = /\bstatic\b/.test(owner.method.modifiers) || /\bstatic\b/.test(value);
+          const modifiers = value.replace(/\bstatic\b/g, " ").replace(/\s+/g, " ").trim();
+          owner.method.modifiers = [modifiers, isStatic ? "static" : ""].filter(Boolean).join(" ");
         } else owner.method[field] = value;
         render();
         return;

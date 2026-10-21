@@ -50,7 +50,7 @@ controles de bloques.
 
 ## Versión
 
-La versión actual es **v1.1.29** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.30** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -67,7 +67,8 @@ que están ejecutando.
   tiene **+ Variable** junto a su firma para agregarle parámetros, variables
   locales, variables inicializadas o constantes. En un constructor aparece
   **+ Parámetro** directamente. El **+ Variable** del encabezado de la clase agrega
-  un atributo de clase.
+  un atributo de clase. La casilla **static** de cada método permite convertirlo
+  en método de clase; los constructores no muestran esa opción.
 - La pestaña **UML Clases** permite crear clases, escribir atributos y métodos,
   moverlas en el lienzo y conectarlas con asociaciones, herencia,
   implementación, agregación, composición o dependencia. La selección se edita
