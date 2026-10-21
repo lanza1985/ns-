@@ -130,6 +130,14 @@ function assignTo(vars, code, instance, allowAsync = true) {
 
 function executeInstruction(vars, code, instance, allowAsync = true) {
   const statement = String(code).trim().replace(/;\s*$/, "");
+  const increment = statement.match(/^([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*(\+\+|--)$/)
+    || statement.match(/^(\+\+|--)\s*([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)$/);
+  if (increment) {
+    const prefix = increment[1] === "++" || increment[1] === "--";
+    const name = prefix ? increment[2] : increment[1];
+    const operation = prefix ? increment[1] : increment[2];
+    return assignTo(vars, `${name} = ${name} ${operation === "++" ? "+" : "-"} 1`, instance, allowAsync);
+  }
   if (/^[A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*(?:=|←)(?!=)/.test(statement)) {
     return assignTo(vars, statement, instance, allowAsync);
   }
@@ -200,6 +208,35 @@ function evaluateWith(vars, source, instance) {
     if (JS_IDENTIFIER.test(name) && !JS_RESERVED_WORDS.has(name) && !entries.some(([key]) => key === name)) entries.push([name, constructor]);
   if (!entries.some(([name]) => name === "ArrayList")) entries.push(["ArrayList", JavaArrayList]);
   return Function(...entries.map(([name]) => name), `"use strict";return (${javaExpression(source)})`).call(instance, ...entries.map(([, value]) => value));
+}
+
+// La concatenación convierte una Promise en "[object Promise]" antes de que
+// quien llama pueda esperarla. Evaluamos sus operandos por separado para que
+// las salidas con métodos de diagramas conserven el valor real.
+function evaluateOutputValue(vars, source, instance) {
+  const expression = String(source);
+  const parts = [];
+  let start = 0, depth = 0, quote = "";
+  for (let index = 0; index < expression.length; index++) {
+    const char = expression[index];
+    if (quote) {
+      if (char === quote && expression[index - 1] !== "\\") quote = "";
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") { quote = char; continue; }
+    if (char === "(" || char === "[" || char === "{") { depth++; continue; }
+    if (")]}".includes(char)) { depth--; continue; }
+    if (char !== "+" || depth || expression[index + 1] === "+" || expression[index - 1] === "+") continue;
+    const before = expression.slice(start, index).trim();
+    if (!before || /[+*/%&|^?:=!,\-]$/.test(before) || /\d[eE]$/.test(before)) continue;
+    parts.push(before);
+    start = index + 1;
+  }
+  if (!parts.length || !expression.slice(start).trim()) return evaluateWith(vars, expression, instance);
+  parts.push(expression.slice(start).trim());
+  const values = parts.map((part) => evaluateWith(vars, part, instance));
+  const combine = (items) => items.reduce((left, right) => left + right);
+  return values.some((value) => value instanceof Promise) ? Promise.all(values).then(combine) : combine(values);
 }
 
 function splitArguments(source) {
@@ -481,6 +518,19 @@ function runConstructorDiagram(target, args, instance) {
   }
 }
 
+function runSimpleReturnMethod(target, args, instance) {
+  const parameters = target.declarations.filter((item) => item.kind === "parameter");
+  if (args.length !== parameters.length)
+    throw Error(`${diagramLabel(target)} espera ${parameters.length} argumento(s); recibió ${args.length}`);
+  const className = String(target.method.className ?? "").trim() || "Sin clase";
+  const scope = instance || (/\bstatic\b/.test(String(target.method.modifiers ?? ""))
+    ? runner.classConstructors[className] : classScopeFor(className, runner.classScopes));
+  const vars = scopedVariables(className, scope,
+    Object.fromEntries(parameters.map((item, index) => [item.name, args[index]])),
+    new Set(target.declarations.map((item) => item.name)));
+  return evaluateWith(vars, target.blocks[0].expression, scope);
+}
+
 function createDiagramClasses() {
   const constructors = Object.create(null);
   const names = new Set(diagrams.map((item) => String(item.method.className ?? "").trim() || "Sin clase"));
@@ -506,7 +556,12 @@ function createDiagramClasses() {
     const owner = /\bstatic\b/.test(String(target.method.modifiers ?? "")) ? constructors[className] : constructors[className].prototype;
     Object.defineProperty(owner, name, {
       configurable: true,
-      value: async function (...args) { return runDiagramFunction(target, args, [target.id], this); },
+      value: function (...args) {
+        if (target.blocks.length === 1 && target.blocks[0].type === "return" &&
+            target.declarations.every((item) => item.kind === "parameter"))
+          return runSimpleReturnMethod(target, args, this);
+        return runDiagramFunction(target, args, [target.id], this);
+      },
     });
   }
   for (const className of names) {
@@ -559,7 +614,7 @@ async function runDiagramFunction(target, args, callStack, instance) {
       if (item.type === "comment" || item.type === "variable") continue;
       if (item.type === "instruction") await executeInstruction(vars, item.code, scope);
       else if (["declare", "constant"].includes(item.type)) vars[item.name] = evaluateWith(vars, item.expression);
-      else if (item.type === "output") out(evaluateWith(vars, item.expression));
+      else if (item.type === "output") out(await evaluateOutputValue(vars, item.expression, scope));
       else if (item.type === "input") { const value = await ask(item); if (value === Symbol.for("cancel")) throw Error("Entrada cancelada"); vars[item.name] = parse(value); }
       else if (item.type === "call") {
         if (parseDiagramCall(item.code)) await executeDiagramCall(item.code, vars, callStack);
@@ -637,7 +692,7 @@ async function advance() {
       runner.vars[b.name] = parse(val);
       runner.pc++;
     } else if (x.kind === "output") {
-      out(expr(b.expression));
+      out(await evaluateOutputValue(runner.vars, b.expression, runner.classInstance));
       runner.pc++;
     } else if (x.kind === "call") {
       if (parseDiagramCall(b.code)) await executeDiagramCall(b.code, runner.vars, runner.callStack);

@@ -248,6 +248,30 @@
       check(runner.vars.nombres.isEmpty(), "clear no vació la lista");
       check(document.querySelector("#console").textContent.includes("Ana"), "PARA CADA no recorrió la lista");
     })],
+    ["PARA CADA espera métodos antes de concatenar la salida", () => withTemporaryProject(async () => {
+      useDiagrams([
+        { id: "test-main", method: { className: "Prueba", modifiers: "public static", returnType: "void", name: "main" }, declarations: [], blocks: [
+          { id: 1000, type: "instruction", code: "personas = new ArrayList<Persona>()" },
+          { id: 1001, type: "call", code: "personas.add(new Persona(123))" },
+          { id: 1002, type: "foreach", dataType: "Persona", variable: "persona", collection: "personas", body: [
+            { id: 1003, type: "output", expression: '"DNI: " + persona.getDni()' },
+          ] },
+        ] },
+        { id: "test-constructor", method: { className: "Persona", modifiers: "public", returnType: "", name: "Persona" }, declarations: [
+          { kind: "parameter", dataType: "Integer", name: "dni", expression: "" },
+        ], blocks: [{ id: 1004, type: "instruction", code: "this.dni = dni" }] },
+        { id: "test-getter", method: { className: "Persona", modifiers: "public", returnType: "Integer", name: "getDni" }, declarations: [], blocks: [
+          { id: 1005, type: "instruction", code: "valor = this.dni" },
+          { id: 1006, type: "return", expression: "valor" },
+        ] },
+      ], "test-main");
+      classDeclarations = normalizeClassDeclarations({ Persona: [{ kind: "variable", dataType: "Integer", name: "dni" }] });
+      await start(false);
+      for (let count = 0; runner && !runner.done && count < 12; count++) await advance();
+      check(runner?.done, "El programa no finalizó");
+      equal($("#status").textContent, "Listo");
+      check(document.querySelector("#console").textContent.includes("DNI: 123"), "La salida no esperó el método");
+    })],
     ["El constructor inicializa instancias y static comparte una lista", () => withTemporaryProject(async () => {
       useDiagrams([
         { id: "test-main", method: { className: "Test", modifiers: "public static", returnType: "void", name: "main" }, declarations: [], blocks: [
