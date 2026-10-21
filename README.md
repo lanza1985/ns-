@@ -50,7 +50,7 @@ controles de bloques.
 
 ## Versión
 
-La versión actual es **v1.1.27** y se muestra en el pie de la aplicación. En
+La versión actual es **v1.1.28** y se muestra en el pie de la aplicación. En
 cada cambio, incrementá `APP_VERSION` en `core.js` y actualizá este número antes
 de publicar. Así las personas usuarias siempre pueden identificar la versión
 que están ejecutando.
@@ -65,8 +65,8 @@ que están ejecutando.
   una clase desde su encabezado en el panel, y la flecha de cada método permite
   contraerlo o expandirlo. Este estado se conserva al guardar. Cada método
   tiene **+ Variable** junto a su firma para agregarle parámetros, variables
-  locales, variables inicializadas o constantes. En un constructor, el menú
-  ofrece sólo parámetros. El **+ Variable** del encabezado de la clase agrega
+  locales, variables inicializadas o constantes. En un constructor aparece
+  **+ Parámetro** directamente. El **+ Variable** del encabezado de la clase agrega
   un atributo de clase.
 - La pestaña **UML Clases** permite crear clases, escribir atributos y métodos,
   moverlas en el lienzo y conectarlas con asociaciones, herencia,
@@ -146,7 +146,7 @@ que están ejecutando.
   Los índices comienzan en 0. `remove` con un número elimina por índice;
   con otro tipo de valor elimina la primera coincidencia.
 - **+ Constructor** crea un diagrama con el mismo nombre que la clase. Agregá
-  parámetros con su **+ Variable** y usá bloques de instrucción para inicializar
+  parámetros con **+ Parámetro** y usá bloques de instrucción para inicializar
   atributos, por ejemplo `this.edad = edad`; se ejecuta al evaluar
   `new Persona(18)`. Los constructores admiten instrucciones, condiciones y
   bucles; no solicitan entrada interactiva ni llaman métodos asíncronos.

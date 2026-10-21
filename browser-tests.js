@@ -297,6 +297,8 @@
       const section = (name) => document.querySelector(`[data-method-diagram="test-${name}"]`);
       equal(section("main").querySelectorAll("[data-add-method-declaration]").length, 4);
       equal(section("Prueba").querySelectorAll("[data-add-method-declaration]").length, 1);
+      check(!section("Prueba").querySelector(".method-declarations-menu"), "El constructor muestra un menú innecesario");
+      equal(section("Prueba").querySelector(".method-single-declaration").textContent, "+ Parámetro");
       section("otro").querySelector('[data-add-method-declaration="variable"]').click();
       equal(diagrams[1].declarations[0].kind, "variable");
       equal(diagrams[0].declarations.length, 0);

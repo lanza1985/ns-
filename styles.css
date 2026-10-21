@@ -675,7 +675,8 @@ body {
   align-items: flex-start;
 }
 .method-declarations-menu { min-width: 155px; margin-left: auto; font: 12px Arial, sans-serif; font-weight: normal; }
-.method-declarations-menu summary { list-style: none; border: 1px solid #b6c3de; border-radius: 6px; background: #fff; color: #3858d6; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
+.method-declarations-menu summary, .method-single-declaration { list-style: none; border: 1px solid #b6c3de; border-radius: 6px; background: #fff; color: #3858d6; padding: 5px 9px; cursor: pointer; white-space: nowrap; }
+.method-single-declaration { margin-left: auto; font: 12px Arial, sans-serif; }
 .method-declarations-menu summary::-webkit-details-marker { display: none; }
 .method-declarations-menu > div { margin-top: 4px; padding: 4px; border: 1px solid #b6c3de; border-radius: 6px; background: #fff; }
 .method-declarations-menu button { display: block; width: 100%; border: 0; border-radius: 4px; padding: 7px 9px; background: transparent; color: #31436f; text-align: left; cursor: pointer; }
@@ -1766,7 +1767,7 @@ footer b::after {
 .dark-theme .class-variables { background: #1b2637; }
 .dark-theme .class-variables-head { color: #dce5ff; }
 .dark-theme .class-variables-head button, .dark-theme .class-variable-row select { background: #263247; border-color: #475569; color: #dce5ff; }
-.dark-theme .method-declarations-menu summary, .dark-theme .method-declarations-menu > div { background: #263247; border-color: #475569; color: #dce5ff; }
+.dark-theme .method-declarations-menu summary, .dark-theme .method-declarations-menu > div, .dark-theme .method-single-declaration { background: #263247; border-color: #475569; color: #dce5ff; }
 .dark-theme .method-declarations-menu button { color: #dce5ff; }
 .dark-theme .method-declarations-menu button:hover { background: #334155; }
 

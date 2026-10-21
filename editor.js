@@ -331,15 +331,15 @@ function declarationHTML() {
     })
     .join("");
   const isConstructor = method.name.trim() === method.className.trim();
-  const options = [
-    '<button type="button" data-add-method-declaration="parameter">Parámetro</button>',
-    ...(isConstructor ? [] : [
-      '<button type="button" data-add-method-declaration="variable">Variable local</button>',
-      '<button type="button" data-add-method-declaration="declare">Variable inicializada</button>',
-      '<button type="button" data-add-method-declaration="constant">Constante</button>',
-    ]),
-  ].join("");
-  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(method.modifiers, "modifiers")} ${isConstructor ? "" : `${field(method.returnType, "returnType")} `}${field(method.name, "name")}(${parameters})<details class="method-declarations-menu"><summary>+ Variable</summary><div>${options}</div></details></div></div><div class="declarations-area">${locals}</div>`;
+  const declarationControl = isConstructor
+    ? '<button type="button" class="method-single-declaration" data-add-method-declaration="parameter">+ Parámetro</button>'
+    : `<details class="method-declarations-menu"><summary>+ Variable</summary><div>
+        <button type="button" data-add-method-declaration="parameter">Parámetro</button>
+        <button type="button" data-add-method-declaration="variable">Variable local</button>
+        <button type="button" data-add-method-declaration="declare">Variable inicializada</button>
+        <button type="button" data-add-method-declaration="constant">Constante</button>
+      </div></details>`;
+  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(method.modifiers, "modifiers")} ${isConstructor ? "" : `${field(method.returnType, "returnType")} `}${field(method.name, "name")}(${parameters})${declarationControl}</div></div><div class="declarations-area">${locals}</div>`;
 }
 // Recorre todos los bloques, incluso los que están dentro de if, switch y bucles.
 function walk(items, callback, parent = null, key = null) {
