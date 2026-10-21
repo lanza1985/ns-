@@ -254,8 +254,9 @@
           { id: 1000, type: "instruction", code: "personas = new ArrayList<Persona>()" },
           { id: 1001, type: "call", code: "personas.add(new Persona(123))" },
           { id: 1002, type: "foreach", dataType: "Persona", variable: "persona", collection: "personas", body: [
-            { id: 1003, type: "output", expression: '"DNI: " + persona.getDni()' },
+            { id: 1003, type: "output", expression: '"DNI: " + persona.getDni();' },
           ] },
+          { id: 1007, type: "output", expression: '"Fin";' },
         ] },
         { id: "test-constructor", method: { className: "Persona", modifiers: "public", returnType: "", name: "Persona" }, declarations: [
           { kind: "parameter", dataType: "Integer", name: "dni", expression: "" },
@@ -271,6 +272,7 @@
       check(runner?.done, "El programa no finalizó");
       equal($("#status").textContent, "Listo");
       check(document.querySelector("#console").textContent.includes("DNI: 123"), "La salida no esperó el método");
+      check(document.querySelector("#console").textContent.includes("Fin"), "La salida no aceptó el punto y coma final");
     })],
     ["El constructor inicializa instancias y static comparte una lista", () => withTemporaryProject(async () => {
       useDiagrams([

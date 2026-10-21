@@ -196,7 +196,8 @@ class JavaArrayList {
 function javaExpression(source) {
   // El tipo genérico sólo sirve para documentar el elemento; JavaScript no lo
   // acepta en una expresión new. El constructor admite también la forma simple.
-  return String(source ?? "").replace(/\bnew\s+ArrayList\s*<\s*[A-Za-z_$][\w$]*(?:\s*\[\s*\])?\s*>\s*\(/g, "new ArrayList(")
+  return String(source ?? "").trim().replace(/;\s*$/, "")
+    .replace(/\bnew\s+ArrayList\s*<\s*[A-Za-z_$][\w$]*(?:\s*\[\s*\])?\s*>\s*\(/g, "new ArrayList(")
     .replace(/\bnew\s+ArrayList\s*<\s*>\s*\(/g, "new ArrayList(");
 }
 function evaluateWith(vars, source, instance) {
@@ -214,7 +215,7 @@ function evaluateWith(vars, source, instance) {
 // quien llama pueda esperarla. Evaluamos sus operandos por separado para que
 // las salidas con métodos de diagramas conserven el valor real.
 function evaluateOutputValue(vars, source, instance) {
-  const expression = String(source);
+  const expression = String(source).trim().replace(/;\s*$/, "");
   const parts = [];
   let start = 0, depth = 0, quote = "";
   for (let index = 0; index < expression.length; index++) {
