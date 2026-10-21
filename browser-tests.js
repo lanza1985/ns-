@@ -291,6 +291,24 @@
       document.querySelector("[data-class-static]").click();
       equal(classDeclarations.Prueba[0].isStatic, true);
     })],
+    ["Cada método agrega sus declaraciones y el constructor solo parámetros", () => withTemporaryProject(() => {
+      useDiagrams([fixtureDiagram(), fixtureDiagram([], [], "otro"), fixtureDiagram([], [], "Prueba")], "test-main");
+      render();
+      const section = (name) => document.querySelector(`[data-method-diagram="test-${name}"]`);
+      equal(section("main").querySelectorAll("[data-add-method-declaration]").length, 4);
+      equal(section("Prueba").querySelectorAll("[data-add-method-declaration]").length, 1);
+      section("otro").querySelector('[data-add-method-declaration="variable"]').click();
+      equal(diagrams[1].declarations[0].kind, "variable");
+      equal(diagrams[0].declarations.length, 0);
+      section("main").querySelector('[data-add-method-declaration="parameter"]').click();
+      equal(diagrams[0].declarations[0].kind, "parameter");
+      section("Prueba").querySelector('[data-add-method-declaration="parameter"]').click();
+      equal(diagrams[2].declarations[0].kind, "parameter");
+      check(document.querySelector('[data-add="declVariable"]').hidden, "El menú global ofrece variables locales al constructor");
+      equal(getComputedStyle(document.querySelector('[data-add="declVariable"]')).display, "none");
+      add("declVariable");
+      equal(diagrams[2].declarations.length, 1);
+    })],
     ["Autoguardado restaura el proyecto y su nombre", () => withTemporaryProject(() => {
       useDiagrams([fixtureDiagram([{ id: 1000, type: "comment", text: "copia" }])]);
       projectName.value = "Proyecto recuperable";

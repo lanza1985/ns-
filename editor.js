@@ -113,6 +113,7 @@ function render() {
   method = active.method;
   diagram.style.display = "block";
   emptyState.hidden = true;
+  updateDeclarationOptions();
   renderDiagramList();
   main.classList.toggle("no-colors", !colorToggle.checked);
   bind();
@@ -137,6 +138,7 @@ function activateDiagramContext(id) {
   declarations = item.declarations;
   method = item.method;
   selectedId = null;
+  updateDeclarationOptions();
   $$(".ns-block.selected").forEach((block) => block.classList.remove("selected"));
   $$(".ns-method").forEach((section) => section.classList.toggle("is-active", section.dataset.methodDiagram === id));
   $$(".project-card").forEach((card) => card.classList.toggle("active", card.querySelector("[data-diagram-id]")?.dataset.diagramId === id));
@@ -175,6 +177,21 @@ function bindMethodSections() {
     button.onclick = () => {
       classDeclarations[button.closest(".class-variables").dataset.className].splice(Number(button.dataset.removeClassVariable), 1);
       render();
+    };
+  });
+  $$('[data-add-method-declaration]').forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      const owner = diagrams.find((item) => item.id === button.closest(".ns-method").dataset.methodDiagram);
+      if (!owner) return;
+      const kind = button.dataset.addMethodDeclaration;
+      if (owner.method.name.trim() === owner.method.className.trim() && kind !== "parameter") return;
+      owner.declarations.push(newDeclaration(kind));
+      activateDiagramContext(owner.id);
+      render();
+      const index = owner.declarations.length - 1;
+      $$(".ns-method").find((section) => section.dataset.methodDiagram === owner.id)
+        ?.querySelector(`[data-declaration="${index}"][data-declaration-field="name"]`)?.focus();
     };
   });
   $$(".ns-method").forEach((section) => {
@@ -314,7 +331,15 @@ function declarationHTML() {
     })
     .join("");
   const isConstructor = method.name.trim() === method.className.trim();
-  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(method.modifiers, "modifiers")} ${isConstructor ? "" : `${field(method.returnType, "returnType")} `}${field(method.name, "name")}(${parameters})</div></div><div class="declarations-area">${locals}</div>`;
+  const options = [
+    '<button type="button" data-add-method-declaration="parameter">Parámetro</button>',
+    ...(isConstructor ? [] : [
+      '<button type="button" data-add-method-declaration="variable">Variable local</button>',
+      '<button type="button" data-add-method-declaration="declare">Variable inicializada</button>',
+      '<button type="button" data-add-method-declaration="constant">Constante</button>',
+    ]),
+  ].join("");
+  return `<div class="method-header"><div class="class-signature">class ${field(method.className, "className")}:</div><div class="method-signature-ui">${field(method.modifiers, "modifiers")} ${isConstructor ? "" : `${field(method.returnType, "returnType")} `}${field(method.name, "name")}(${parameters})<details class="method-declarations-menu"><summary>+ Variable</summary><div>${options}</div></details></div></div><div class="declarations-area">${locals}</div>`;
 }
 // Recorre todos los bloques, incluso los que están dentro de if, switch y bucles.
 function walk(items, callback, parent = null, key = null) {
@@ -544,6 +569,20 @@ function targetList() {
   }
   return null;
 }
+function newDeclaration(kind) {
+  return {
+    kind,
+    dataType: "Integer",
+    name: kind === "constant" ? "CONSTANTE" : "variable",
+    expression: kind === "constant" ? "valor" : "0",
+  };
+}
+function updateDeclarationOptions() {
+  const isConstructor = String(method.name ?? "").trim() === String(method.className ?? "").trim();
+  $$('[data-add="declConstant"], [data-add="declVariable"], [data-add="declInitialized"]').forEach((button) => {
+    button.hidden = isConstructor;
+  });
+}
 function add(t) {
   // Las declaraciones viven arriba del método; los demás bloques viven en el flujo.
   const declarationKinds = {
@@ -559,12 +598,8 @@ function add(t) {
   }
   if (declarationKinds[t]) {
     const kind = declarationKinds[t];
-    declarations.push({
-      kind,
-      dataType: "Integer",
-      name: kind === "constant" ? "CONSTANTE" : "variable",
-      expression: kind === "constant" ? "valor" : "0",
-    });
+    if (method.name.trim() === method.className.trim() && kind !== "parameter") return;
+    declarations.push(newDeclaration(kind));
     render();
     return;
   }
